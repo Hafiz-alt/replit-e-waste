@@ -1,29 +1,90 @@
 import { useQuery } from "@tanstack/react-query";
-import { PickupRequest } from "@shared/schema";
+import { RepairRequest, type InsertMarketplaceListing, insertMarketplaceListingSchema } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { WrenchIcon, CheckCircle2Icon, ClockIcon } from "lucide-react";
+import { WrenchIcon, CheckCircle2Icon, ClockIcon, StoreIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import type { z } from "zod";
 
 export default function TechnicianDashboard() {
-  const { data: repairTasks } = useQuery<PickupRequest[]>({
-    queryKey: ["/api/repair-tasks"],
+  const { toast } = useToast();
+  const [listingDialogOpen, setListingDialogOpen] = useState(false);
+  const [selectedRepair, setSelectedRepair] = useState<RepairRequest | null>(null);
+
+  const { data: repairRequests } = useQuery<RepairRequest[]>({
+    queryKey: ["/api/repair-requests/technician"],
   });
 
-  const updateTaskStatus = async (id: number, status: string) => {
+  const updateRepairStatus = async (id: number, status: string, estimatedCost?: number) => {
     try {
-      await apiRequest("PATCH", `/api/repair-tasks/${id}/status`, { status });
-      queryClient.invalidateQueries({ queryKey: ["/api/repair-tasks"] });
+      await apiRequest("PATCH", `/api/repair-requests/${id}/status`, { 
+        status,
+        estimatedCost
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/repair-requests/technician"] });
+      toast({
+        title: "Status Updated",
+        description: `Repair request status updated to ${status}`,
+      });
     } catch (error) {
-      console.error("Failed to update task status:", error);
+      console.error("Failed to update repair status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update repair status",
+        variant: "destructive",
+      });
     }
   };
 
-  const pendingTasks = repairTasks?.filter((t) => t.status === "PENDING") || [];
-  const inProgressTasks = repairTasks?.filter((t) => t.status === "IN_PROGRESS") || [];
-  const completedTasks = repairTasks?.filter((t) => t.status === "COMPLETED") || [];
+  const listingForm = useForm<z.infer<typeof insertMarketplaceListingSchema>>({
+    resolver: zodResolver(insertMarketplaceListingSchema),
+    defaultValues: {
+      images: [],
+      status: 'AVAILABLE',
+      condition: 'GOOD',
+      isRefurbished: true,
+    }
+  });
+
+  const onSubmitListing = async (data: z.infer<typeof insertMarketplaceListingSchema>) => {
+    try {
+      if (!selectedRepair) return;
+
+      await apiRequest("POST", "/api/marketplace-listings", {
+        ...data,
+        originalRepairId: selectedRepair.id,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace-listings"] });
+      toast({
+        title: "Success",
+        description: "Item listed successfully in the marketplace",
+      });
+      setListingDialogOpen(false);
+      listingForm.reset();
+    } catch (error) {
+      console.error("Failed to create marketplace listing:", error);
+      toast({
+        title: "Error",
+        description: "Failed to list item in marketplace",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const pendingRepairs = repairRequests?.filter((r) => r.status === "PENDING") || [];
+  const inProgressRepairs = repairRequests?.filter((r) => r.status === "IN_PROGRESS") || [];
+  const completedRepairs = repairRequests?.filter((r) => r.status === "COMPLETED") || [];
 
   return (
     <div className="space-y-6">
@@ -32,11 +93,11 @@ export default function TechnicianDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ClockIcon className="h-5 w-5" />
-              Pending Tasks
+              Pending Repairs
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{pendingTasks.length}</p>
+            <p className="text-3xl font-bold">{pendingRepairs.length}</p>
           </CardContent>
         </Card>
         <Card>
@@ -47,7 +108,7 @@ export default function TechnicianDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{inProgressTasks.length}</p>
+            <p className="text-3xl font-bold">{inProgressRepairs.length}</p>
           </CardContent>
         </Card>
         <Card>
@@ -58,53 +119,81 @@ export default function TechnicianDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{completedTasks.length}</p>
+            <p className="text-3xl font-bold">{completedRepairs.length}</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Repair Tasks</CardTitle>
+          <CardTitle>Repair Requests</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Status</TableHead>
-                <TableHead>Item Type</TableHead>
+                <TableHead>Device</TableHead>
                 <TableHead>Description</TableHead>
+                <TableHead>Estimated Cost</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {repairTasks?.map((task) => (
-                <TableRow key={task.id}>
+              {repairRequests?.map((repair) => (
+                <TableRow key={repair.id}>
                   <TableCell>
                     <Badge variant={
-                      task.status === "COMPLETED" ? "default" :
-                      task.status === "IN_PROGRESS" ? "secondary" : "outline"
+                      repair.status === "COMPLETED" ? "default" :
+                      repair.status === "IN_PROGRESS" ? "secondary" : "outline"
                     }>
-                      {task.status}
+                      {repair.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{task.items[0]?.type}</TableCell>
-                  <TableCell>{task.items[0]?.description}</TableCell>
+                  <TableCell>{repair.deviceType}</TableCell>
+                  <TableCell>{repair.description}</TableCell>
                   <TableCell>
-                    {task.status === "PENDING" && (
-                      <Button
-                        size="sm"
-                        onClick={() => updateTaskStatus(task.id, "IN_PROGRESS")}
-                      >
-                        Start Repair
-                      </Button>
+                    {repair.estimatedCost ? 
+                      `$${parseFloat(repair.estimatedCost.toString()).toFixed(2)}` : 
+                      'Pending'
+                    }
+                  </TableCell>
+                  <TableCell>
+                    {repair.status === "PENDING" && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            const cost = window.prompt("Enter estimated repair cost:");
+                            if (cost && !isNaN(parseFloat(cost))) {
+                              updateRepairStatus(repair.id, "IN_PROGRESS", parseFloat(cost));
+                            }
+                          }}
+                        >
+                          Start Repair
+                        </Button>
+                      </div>
                     )}
-                    {task.status === "IN_PROGRESS" && (
+                    {repair.status === "IN_PROGRESS" && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => updateRepairStatus(repair.id, "COMPLETED")}
+                        >
+                          Complete
+                        </Button>
+                      </div>
+                    )}
+                    {repair.status === "COMPLETED" && (
                       <Button
                         size="sm"
-                        onClick={() => updateTaskStatus(task.id, "COMPLETED")}
+                        onClick={() => {
+                          setSelectedRepair(repair);
+                          setListingDialogOpen(true);
+                        }}
                       >
-                        Mark Complete
+                        <StoreIcon className="h-4 w-4 mr-2" />
+                        List in Marketplace
                       </Button>
                     )}
                   </TableCell>
@@ -114,6 +203,81 @@ export default function TechnicianDashboard() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={listingDialogOpen} onOpenChange={setListingDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>List Refurbished Item</DialogTitle>
+            <DialogDescription>
+              Create a marketplace listing for this refurbished device.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...listingForm}>
+            <form onSubmit={listingForm.handleSubmit(onSubmitListing)} className="space-y-4">
+              <FormField
+                control={listingForm.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Title</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Refurbished Laptop" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={listingForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} placeholder="Describe the item's condition and specifications" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={listingForm.control}
+                name="price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Price ($)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={listingForm.control}
+                name="condition"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Condition</FormLabel>
+                    <FormControl>
+                      <select
+                        {...field}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="LIKE_NEW">Like New</option>
+                        <option value="GOOD">Good</option>
+                        <option value="FAIR">Fair</option>
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit">Create Listing</Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

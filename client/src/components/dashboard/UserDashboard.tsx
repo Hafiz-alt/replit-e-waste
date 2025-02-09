@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { PickupRequest, SupportTicket, insertRepairRequestSchema } from "@shared/schema";
+import { PickupRequest, SupportTicket, insertRepairRequestSchema, type RepairRequest } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -11,7 +11,7 @@ import { insertPickupRequestSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { CalendarIcon, Package2Icon, TicketIcon, LoaderIcon, LeafIcon, TrophyIcon, WrenchIcon } from "lucide-react";
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -25,7 +25,7 @@ type FormData = z.infer<typeof insertPickupRequestSchema>;
 export default function UserDashboard() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [repairDialogOpen, setRepairDialogOpen] = useState(false); //for repair request
+  const [repairDialogOpen, setRepairDialogOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -37,7 +37,7 @@ export default function UserDashboard() {
     queryKey: ["/api/support-tickets/user"],
   });
 
-  const { data: repairRequests } = useQuery({
+  const { data: repairRequests } = useQuery<RepairRequest[]>({
     queryKey: ["/api/repair-requests/user"],
   });
 
@@ -49,7 +49,7 @@ export default function UserDashboard() {
         type: 'general',
         description: 'General e-waste pickup',
         quantity: 1,
-        estimatedCarbonImpact: 2.5 // Default carbon impact in kg CO2
+        estimatedCarbonImpact: 2.5
       }],
     },
   });
@@ -63,7 +63,7 @@ export default function UserDashboard() {
         scheduledDate: new Date(data.scheduledDate).toISOString(),
         items: [{
           ...data.items[0],
-          estimatedCarbonImpact: 2.5 // Default carbon impact in kg CO2
+          estimatedCarbonImpact: 2.5
         }]
       });
       queryClient.invalidateQueries({ queryKey: ["/api/pickup-requests/user"] });
@@ -85,7 +85,6 @@ export default function UserDashboard() {
     }
   };
 
-  // Calculate total carbon saved and points
   const totalCarbonSaved = parseFloat(user?.totalCarbonSaved?.toString() || '0');
   const totalPoints = parseInt(user?.points?.toString() || '0');
 
@@ -94,10 +93,12 @@ export default function UserDashboard() {
       resolver: zodResolver(insertRepairRequestSchema),
       defaultValues: {
         status: "PENDING",
+        deviceType: "",
+        description: "",
       }
     });
 
-    const onSubmitRepair = async (data: any) => {
+    const onSubmitRepair = async (data: z.infer<typeof insertRepairRequestSchema>) => {
       try {
         await apiRequest("POST", "/api/repair-requests", {
           ...data,
@@ -342,6 +343,9 @@ export default function UserDashboard() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>New Repair Request</DialogTitle>
+                  <DialogDescription>
+                    Submit a repair request for your electronic device. Our technicians will assess and provide an estimate.
+                  </DialogDescription>
                 </DialogHeader>
                 <RepairRequestForm />
               </DialogContent>
