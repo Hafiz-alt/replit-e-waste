@@ -55,7 +55,16 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
 export const insertPickupRequestSchema = createInsertSchema(pickupRequests).extend({
-  items: z.array(WasteItemSchema),
+  items: z.array(WasteItemSchema).default([{
+    type: 'general',
+    description: 'General e-waste pickup',
+    quantity: 1
+  }]),
+  status: z.string().default('PENDING'),
+  userId: z.number().optional(),
+  createdAt: z.date().optional(),
+  address: z.string().min(1, "Address is required"),
+  scheduledDate: z.string().min(1, "Scheduled date is required")
 });
 export type InsertPickupRequest = z.infer<typeof insertPickupRequestSchema>;
 export type PickupRequest = typeof pickupRequests.$inferSelect;

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { PickupRequest, SupportTicket } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,9 +12,12 @@ import { CalendarIcon, Package2Icon, TicketIcon } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 
 export default function UserDashboard() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { toast } = useToast();
 
   const { data: pickupRequests } = useQuery<PickupRequest[]>({
     queryKey: ["/api/pickup-requests/user"],
@@ -28,18 +31,34 @@ export default function UserDashboard() {
     resolver: zodResolver(insertPickupRequestSchema),
     defaultValues: {
       status: "PENDING",
-      items: [],
+      items: [{
+        type: 'general',
+        description: 'General e-waste pickup',
+        quantity: 1
+      }],
     },
   });
 
   const onSubmit = async (data: any) => {
     try {
-      await apiRequest("POST", "/api/pickup-requests", data);
+      await apiRequest("POST", "/api/pickup-requests", {
+        ...data,
+        scheduledDate: new Date(data.scheduledDate).toISOString()
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/pickup-requests/user"] });
+      toast({
+        title: "Success",
+        description: "Pickup request submitted successfully",
+      });
       setIsDialogOpen(false);
       form.reset();
     } catch (error) {
       console.error("Failed to create pickup request:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit pickup request. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -90,6 +109,7 @@ export default function UserDashboard() {
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -102,10 +122,13 @@ export default function UserDashboard() {
                       <FormControl>
                         <Input type="datetime-local" {...field} />
                       </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
-                <Button type="submit">Submit Request</Button>
+                <Button type="submit" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? "Submitting..." : "Submit Request"}
+                </Button>
               </form>
             </Form>
           </DialogContent>
@@ -128,7 +151,14 @@ export default function UserDashboard() {
             <TableBody>
               {pickupRequests?.map((request) => (
                 <TableRow key={request.id}>
-                  <TableCell className="font-medium">{request.status}</TableCell>
+                  <TableCell>
+                    <Badge variant={
+                      request.status === "COMPLETED" ? "default" :
+                      request.status === "IN_PROGRESS" ? "secondary" : "outline"
+                    }>
+                      {request.status}
+                    </Badge>
+                  </TableCell>
                   <TableCell>{request.address}</TableCell>
                   <TableCell>
                     {new Date(request.scheduledDate).toLocaleDateString()}
