@@ -8,18 +8,35 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Redirect } from "wouter";
-import { RecycleIcon } from "lucide-react";
+import { RecycleIcon, Loader2 } from "lucide-react";
 import { insertUserSchema, UserRole } from "@shared/schema";
+import type { LoginData } from "@/hooks/use-auth";
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
 
-  const loginForm = useForm({
-    resolver: zodResolver(insertUserSchema.pick({ username: true, password: true })),
+  const loginForm = useForm<LoginData>({
+    resolver: zodResolver(
+      insertUserSchema.pick({ 
+        username: true, 
+        password: true 
+      })
+    ),
+    defaultValues: {
+      username: "",
+      password: ""
+    }
   });
 
   const registerForm = useForm({
     resolver: zodResolver(insertUserSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+      name: "",
+      email: "",
+      role: "USER" as const,
+    }
   });
 
   if (user) {
@@ -80,7 +97,14 @@ export default function AuthPage() {
                       className="w-full"
                       disabled={loginMutation.isPending}
                     >
-                      Login
+                      {loginMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Logging in...
+                        </>
+                      ) : (
+                        'Login'
+                      )}
                     </Button>
                   </form>
                 </Form>
@@ -157,7 +181,7 @@ export default function AuthPage() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {Object.values(UserRole.Values).map((role) => (
+                              {(['USER', 'RECYCLER', 'BUSINESS', 'TECHNICIAN', 'EDUCATOR'] as const).map((role) => (
                                 <SelectItem key={role} value={role}>
                                   {role.charAt(0) + role.slice(1).toLowerCase()}
                                 </SelectItem>
@@ -173,7 +197,14 @@ export default function AuthPage() {
                       className="w-full"
                       disabled={registerMutation.isPending}
                     >
-                      Register
+                      {registerMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Registering...
+                        </>
+                      ) : (
+                        'Register'
+                      )}
                     </Button>
                   </form>
                 </Form>
