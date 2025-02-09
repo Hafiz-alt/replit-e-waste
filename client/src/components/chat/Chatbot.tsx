@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/use-auth";
+import { MessageCircle, X, Minimize2, Maximize2 } from "lucide-react";
 
 interface Message {
   text: string;
@@ -12,7 +13,7 @@ interface Message {
 
 const getBotResponse = (message: string, userRole: string) => {
   const lowerMessage = message.toLowerCase();
-  
+
   // Common responses
   if (lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
     return `Hello! How can I help you with e-waste management today?`;
@@ -50,61 +51,102 @@ const getBotResponse = (message: string, userRole: string) => {
 
 export default function Chatbot() {
   const [messages, setMessages] = useState<Message[]>([
-    { text: 'Hello! How can I assist you today?', sender: 'bot' }
+    { text: 'Hello! How can I assist you today?', sender: 'bot' as const }
   ]);
   const [input, setInput] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const { user } = useAuth();
 
   const handleSend = () => {
     if (!input.trim()) return;
 
-    const newMessages = [
-      ...messages,
-      { text: input, sender: 'user' },
-      { text: getBotResponse(input, user?.role || 'USER'), sender: 'bot' }
-    ];
-    setMessages(newMessages);
+    const userMessage: Message = { text: input, sender: 'user' as const };
+    const botMessage: Message = { 
+      text: getBotResponse(input, user?.role || 'USER'), 
+      sender: 'bot' as const 
+    };
+
+    setMessages([...messages, userMessage, botMessage]);
     setInput('');
   };
 
+  if (!isOpen) {
+    return (
+      <Button
+        onClick={() => setIsOpen(true)}
+        className="fixed bottom-4 right-4 rounded-full p-4 shadow-lg"
+        size="icon"
+      >
+        <MessageCircle className="h-6 w-6" />
+      </Button>
+    );
+  }
+
   return (
-    <Card className="fixed bottom-4 right-4 w-80 shadow-lg">
-      <CardHeader className="pb-2">
+    <Card className={`fixed right-4 shadow-lg transition-all duration-300 ${
+      isMinimized ? 'bottom-4 h-12' : 'bottom-4 h-[450px]'
+    } w-80`}>
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-sm">E-Waste Assistant</CardTitle>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setIsMinimized(!isMinimized)}
+          >
+            {isMinimized ? (
+              <Maximize2 className="h-4 w-4" />
+            ) : (
+              <Minimize2 className="h-4 w-4" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setIsOpen(false)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[300px] pr-4">
-          <div className="space-y-4">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`flex ${
-                  message.sender === 'user' ? 'justify-end' : 'justify-start'
-                }`}
-              >
+      {!isMinimized && (
+        <CardContent>
+          <ScrollArea className="h-[300px] pr-4">
+            <div className="space-y-4">
+              {messages.map((message, index) => (
                 <div
-                  className={`rounded-lg px-3 py-2 max-w-[80%] ${
-                    message.sender === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
+                  key={index}
+                  className={`flex ${
+                    message.sender === 'user' ? 'justify-end' : 'justify-start'
                   }`}
                 >
-                  {message.text}
+                  <div
+                    className={`rounded-lg px-3 py-2 max-w-[80%] ${
+                      message.sender === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted'
+                    }`}
+                  >
+                    {message.text}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          </ScrollArea>
+          <div className="flex gap-2 mt-4">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              placeholder="Type your message..."
+            />
+            <Button onClick={handleSend}>Send</Button>
           </div>
-        </ScrollArea>
-        <div className="flex gap-2 mt-4">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Type your message..."
-          />
-          <Button onClick={handleSend}>Send</Button>
-        </div>
-      </CardContent>
+        </CardContent>
+      )}
     </Card>
   );
 }
