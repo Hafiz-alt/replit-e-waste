@@ -1,0 +1,44 @@
+Compressed Backup of the Project:
+
+The project folder (which includes all source code, configuration files, and assets) must be compressed into a ZIP file as a complete backup. This backup will help in version control, migration, or restoring the project if needed.
+User Registration & Authentication:
+
+All user roles (user, recycler, technician, educator, admin, and business) can register and log in.
+Registered user details (name, email, hashed password, role, created_at, etc.) are stored in the database.
+Upon login, users are redirected to role-specific dashboards.
+Role-Based Dashboards:
+
+User Dashboard:
+Users can submit pickup requests by entering the pickup address and preferred date.
+Once a request is submitted, a notification is sent to the Recycler Dashboard.
+Additional features include viewing notifications, rewards, and environmental impact (e.g., carbon footprint saved).
+Recycler Dashboard:
+Displays incoming pickup requests from users.
+Allows recyclers to view details such as pickup address, requested date, and type of e‑waste.
+Receives notifications from user pickup requests.
+Technician Dashboard:
+Displays repair or refurbishment tasks assigned to technicians.
+Enables technicians to update the status of repair tasks and communicate with users.
+Educator Dashboard:
+Allows educators to manage and publish educational content (articles, videos, infographics).
+Tracks engagement metrics and responds to user queries.
+Admin Dashboard:
+Provides system-wide management: user management, monitoring pickup requests, managing support tickets, promotions, and generating reports.
+Business Dashboard (Optional):
+Enables business users to submit bulk pickup requests and track corporate recycling data.
+Interactive Workflow Enhancements:
+
+Dynamic Pickup Request Workflow:
+When a user submits a pickup request (entering the pickup address and preferred date and clicking "Submit Request"), the system should create a new pickup request in the database.
+A notification must be dynamically pushed to the Recycler Dashboard so that recyclers can see and manage these requests in real time.
+Chatbot Integration for Dynamic Communication:
+Implement a dynamic chatbot facility that enables real-time communication between:
+Recyclers and Users: To coordinate pickup details.
+Technicians and Users: To discuss repair/refurbishment queries.
+Integrate the Deepseek R1 API key (or similar AI-powered chatbot API) to handle and clear user queries. This chatbot should be embedded in the relevant dashboards as a floating widget or a dedicated chat panel.
+Marketplace Module:
+Allow users to list their refurbished e‑waste for sale. The marketplace should include:
+A form to create new listings (item name, description, price, condition, photos).
+A public view where other users can browse available items.
+Order processing where users can purchase listed items and provide feedback.
+Ensure that marketplace orders and feedback are stored in the database and are accessible via the respective dashboards.
