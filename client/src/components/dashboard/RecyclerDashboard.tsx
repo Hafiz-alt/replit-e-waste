@@ -13,12 +13,21 @@ export default function RecyclerDashboard() {
   const { toast } = useToast();
 
   const { data: pickupRequests } = useQuery<PickupRequest[]>({
-    queryKey: ["/api/pickup-requests"],
+    queryKey: ["/api/pickup-requests/all"],
   });
 
   const { data: notifications } = useQuery<Notification[]>({
     queryKey: ["/api/notifications"],
   });
+
+  const markNotificationAsRead = async (notificationId: number) => {
+    try {
+      await apiRequest("PATCH", `/api/notifications/${notificationId}/read`, {});
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+    }
+  };
 
   const updateRequestStatus = async (id: number, status: string) => {
     try {
@@ -37,7 +46,7 @@ export default function RecyclerDashboard() {
         });
       }
 
-      queryClient.invalidateQueries({ queryKey: ["/api/pickup-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pickup-requests/all"] });
       toast({
         title: "Status Updated",
         description: `Request status updated to ${status}`,

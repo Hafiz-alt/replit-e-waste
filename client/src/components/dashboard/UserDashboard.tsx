@@ -1,16 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import { PickupRequest, SupportTicket } from "@shared/schema";
+import { PickupRequest, SupportTicket, insertRepairRequestSchema } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPickupRequestSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { CalendarIcon, Package2Icon, TicketIcon, LoaderIcon, LeafIcon, TrophyIcon } from "lucide-react";
+import { CalendarIcon, Package2Icon, TicketIcon, LoaderIcon, LeafIcon, TrophyIcon, WrenchIcon } from "lucide-react";
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +25,7 @@ type FormData = z.infer<typeof insertPickupRequestSchema>;
 export default function UserDashboard() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [repairDialogOpen, setRepairDialogOpen] = useState(false); //for repair request
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -33,6 +35,10 @@ export default function UserDashboard() {
 
   const { data: supportTickets } = useQuery<SupportTicket[]>({
     queryKey: ["/api/support-tickets/user"],
+  });
+
+  const { data: repairRequests } = useQuery({
+    queryKey: ["/api/repair-requests/user"],
   });
 
   const form = useForm<FormData>({
@@ -53,7 +59,7 @@ export default function UserDashboard() {
       setIsSubmitting(true);
       await apiRequest("POST", "/api/pickup-requests", {
         ...data,
-        userId: user?.id, // Add user ID from auth context
+        userId: user?.id,
         scheduledDate: new Date(data.scheduledDate).toISOString(),
         items: [{
           ...data.items[0],
@@ -83,6 +89,72 @@ export default function UserDashboard() {
   const totalCarbonSaved = parseFloat(user?.totalCarbonSaved?.toString() || '0');
   const totalPoints = parseInt(user?.points?.toString() || '0');
 
+  const RepairRequestForm = () => {
+    const repairForm = useForm({
+      resolver: zodResolver(insertRepairRequestSchema),
+      defaultValues: {
+        status: "PENDING",
+      }
+    });
+
+    const onSubmitRepair = async (data: any) => {
+      try {
+        await apiRequest("POST", "/api/repair-requests", {
+          ...data,
+          userId: user?.id,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/repair-requests/user"] });
+        toast({
+          title: "Success",
+          description: "Repair request submitted successfully",
+        });
+        setRepairDialogOpen(false);
+        repairForm.reset();
+      } catch (error) {
+        console.error("Failed to create repair request:", error);
+        toast({
+          title: "Error",
+          description: "Failed to submit repair request",
+          variant: "destructive",
+        });
+      }
+    };
+
+    return (
+      <Form {...repairForm}>
+        <form onSubmit={repairForm.handleSubmit(onSubmitRepair)} className="space-y-4">
+          <FormField
+            control={repairForm.control}
+            name="deviceType"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Device Type</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="e.g., Laptop, Smartphone" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={repairForm.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Issue Description</FormLabel>
+                <FormControl>
+                  <Textarea {...field} placeholder="Describe the issue with your device" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button type="submit">Submit Repair Request</Button>
+        </form>
+      </Form>
+    );
+  };
+
   return (
     <div className="space-y-6 p-6 bg-white dark:bg-gray-900 min-h-screen">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8">
@@ -98,6 +170,7 @@ export default function UserDashboard() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
+          <TabsTrigger value="repairs">Repair Requests</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -256,6 +329,63 @@ export default function UserDashboard() {
 
         <TabsContent value="marketplace">
           <MarketplaceView />
+        </TabsContent>
+        <TabsContent value="repairs" className="space-y-4">
+          <div className="flex justify-end">
+            <Dialog open={repairDialogOpen} onOpenChange={setRepairDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <WrenchIcon className="h-4 w-4 mr-2" />
+                  Request Repair
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>New Repair Request</DialogTitle>
+                </DialogHeader>
+                <RepairRequestForm />
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Repair Requests</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Device</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Estimated Cost</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {repairRequests?.map((request) => (
+                    <TableRow key={request.id}>
+                      <TableCell>
+                        <Badge variant={
+                          request.status === "COMPLETED" ? "default" :
+                            request.status === "IN_PROGRESS" ? "secondary" : "outline"
+                        }>
+                          {request.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{request.deviceType}</TableCell>
+                      <TableCell>{request.description}</TableCell>
+                      <TableCell>
+                        {request.estimatedCost ?
+                          `$${parseFloat(request.estimatedCost.toString()).toFixed(2)}` :
+                          'Pending'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

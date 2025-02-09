@@ -1,11 +1,11 @@
 import { User, InsertUser, PickupRequest, InsertPickupRequest, EducationalContent, InsertEducationalContent, SupportTicket, InsertSupportTicket, Notification, InsertNotification, Achievement, InsertAchievement } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { users, pickupRequests, educationalContent, supportTickets, notifications, achievements } from "@shared/schema";
+import { marketplaceListings, MarketplaceListing, InsertMarketplaceListing } from "@shared/schema";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
-import { marketplaceListings, MarketplaceListing, InsertMarketplaceListing } from "@shared/schema";
 
 const PostgresSessionStore = connectPg(session);
 
@@ -23,6 +23,8 @@ export interface IStorage {
   getPickupRequestsByUser(userId: number): Promise<PickupRequest[]>;
   updatePickupRequestStatus(id: number, status: string): Promise<void>;
   updatePickupRequestImpact(id: number, carbonSaved: number, points: number): Promise<void>;
+  getAllPickupRequests(): Promise<PickupRequest[]>;
+  getPickupRequestsByStatus(status: string): Promise<PickupRequest[]>;
 
   // Notification operations
   createNotification(notification: InsertNotification): Promise<Notification>;
@@ -33,7 +35,7 @@ export interface IStorage {
   createAchievement(achievement: InsertAchievement): Promise<Achievement>;
   getAchievementsByUser(userId: number): Promise<Achievement[]>;
 
-  // Existing operations remain unchanged...
+  // Existing operations
   createEducationalContent(content: InsertEducationalContent): Promise<EducationalContent>;
   getEducationalContent(id: number): Promise<EducationalContent | undefined>;
   getAllEducationalContent(): Promise<EducationalContent[]>;
@@ -60,59 +62,23 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  // Implement new methods
-
+  // Implement methods with proper SQL operations
   async updateUserPoints(userId: number, points: number): Promise<void> {
     await db
       .update(users)
-      .set({ points: db.raw(`points + ${points}`) })
+      .set({ 
+        points: sql`${users.points} + ${points}` 
+      })
       .where(eq(users.id, userId));
   }
 
   async updateUserCarbonSaved(userId: number, carbonSaved: number): Promise<void> {
     await db
       .update(users)
-      .set({ totalCarbonSaved: db.raw(`total_carbon_saved + ${carbonSaved}`) })
+      .set({ 
+        totalCarbonSaved: sql`${users.totalCarbonSaved} + ${carbonSaved}` 
+      })
       .where(eq(users.id, userId));
-  }
-
-  async createNotification(notification: InsertNotification): Promise<Notification> {
-    const [newNotification] = await db
-      .insert(notifications)
-      .values(notification)
-      .returning();
-    return newNotification;
-  }
-
-  async getNotificationsByUser(userId: number): Promise<Notification[]> {
-    return db
-      .select()
-      .from(notifications)
-      .where(eq(notifications.userId, userId))
-      .orderBy(notifications.createdAt);
-  }
-
-  async markNotificationAsRead(id: number): Promise<void> {
-    await db
-      .update(notifications)
-      .set({ read: true })
-      .where(eq(notifications.id, id));
-  }
-
-  async createAchievement(achievement: InsertAchievement): Promise<Achievement> {
-    const [newAchievement] = await db
-      .insert(achievements)
-      .values(achievement)
-      .returning();
-    return newAchievement;
-  }
-
-  async getAchievementsByUser(userId: number): Promise<Achievement[]> {
-    return db
-      .select()
-      .from(achievements)
-      .where(eq(achievements.userId, userId))
-      .orderBy(achievements.earnedAt);
   }
 
   async updatePickupRequestImpact(id: number, carbonSaved: number, points: number): Promise<void> {
@@ -121,23 +87,26 @@ export class DatabaseStorage implements IStorage {
       .from(pickupRequests)
       .where(eq(pickupRequests.id, id));
 
-    await db
-      .update(pickupRequests)
-      .set({ carbonSaved, pointsAwarded: points })
-      .where(eq(pickupRequests.id, id));
-
     if (request) {
+      await db
+        .update(pickupRequests)
+        .set({ 
+          carbonSaved: sql`${carbonSaved}`,
+          pointsAwarded: points 
+        })
+        .where(eq(pickupRequests.id, id));
+
       // Update user's total carbon saved and points
       await db
         .update(users)
-        .set({ 
-          totalCarbonSaved: db.raw(`total_carbon_saved + ${carbonSaved}`),
-          points: db.raw(`points + ${points}`)
+        .set({
+          totalCarbonSaved: sql`${users.totalCarbonSaved} + ${carbonSaved}`,
+          points: sql`${users.points} + ${points}`
         })
         .where(eq(users.id, request.userId));
 
       // Create achievement notification
-      await db.insert(notifications).values({
+      await this.createNotification({
         userId: request.userId,
         title: "Environmental Impact",
         message: `You've saved ${carbonSaved}kg of CO2 and earned ${points} points!`,
@@ -158,7 +127,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const [newUser] = await db.insert(users).values(user).returning();
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        ...user,
+        points: 0,
+        totalCarbonSaved: '0',
+      })
+      .returning();
     return newUser;
   }
 
@@ -167,14 +143,14 @@ export class DatabaseStorage implements IStorage {
       .insert(pickupRequests)
       .values({
         ...request,
-        userId: request.userId!, // User ID is now required
-        scheduledDate: request.scheduledDate,
+        carbonSaved: '0',
+        pointsAwarded: 0,
         createdAt: new Date(),
       })
       .returning();
 
     // Create notification for recyclers
-    await db.insert(notifications).values({
+    await this.createNotification({
       userId: request.userId!,
       title: "New Pickup Request",
       message: `A new pickup request has been created for address: ${request.address}`,
@@ -314,6 +290,60 @@ export class DatabaseStorage implements IStorage {
       .update(marketplaceListings)
       .set({ status })
       .where(eq(marketplaceListings.id, id));
+  }
+
+  async getAllPickupRequests(): Promise<PickupRequest[]> {
+    return db
+      .select()
+      .from(pickupRequests)
+      .orderBy(pickupRequests.createdAt);
+  }
+
+  async getPickupRequestsByStatus(status: string): Promise<PickupRequest[]> {
+    return db
+      .select()
+      .from(pickupRequests)
+      .where(eq(pickupRequests.status, status))
+      .orderBy(pickupRequests.createdAt);
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [newNotification] = await db
+      .insert(notifications)
+      .values(notification)
+      .returning();
+    return newNotification;
+  }
+
+  async getNotificationsByUser(userId: number): Promise<Notification[]> {
+    return db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(notifications.createdAt);
+  }
+
+  async markNotificationAsRead(id: number): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ read: true })
+      .where(eq(notifications.id, id));
+  }
+
+  async createAchievement(achievement: InsertAchievement): Promise<Achievement> {
+    const [newAchievement] = await db
+      .insert(achievements)
+      .values(achievement)
+      .returning();
+    return newAchievement;
+  }
+
+  async getAchievementsByUser(userId: number): Promise<Achievement[]> {
+    return db
+      .select()
+      .from(achievements)
+      .where(eq(achievements.userId, userId))
+      .orderBy(achievements.earnedAt);
   }
 }
 
