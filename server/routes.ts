@@ -2,10 +2,83 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { insertPickupRequestSchema, insertEducationalContentSchema, insertSupportTicketSchema } from "@shared/schema";
+import { insertPickupRequestSchema, insertEducationalContentSchema, insertSupportTicketSchema, insertRepairRequestSchema } from "@shared/schema";
 
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
+
+  // Repair Request Routes
+  app.post("/api/repair-requests", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const parsed = insertRepairRequestSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json(parsed.error);
+
+    try {
+      const request = await storage.createRepairRequest(parsed.data);
+      res.status(201).json(request);
+    } catch (error) {
+      console.error("Failed to create repair request:", error);
+      res.status(500).json({ message: "Failed to create repair request" });
+    }
+  });
+
+  app.get("/api/repair-requests/user", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const requests = await storage.getRepairRequestsByUser(req.user.id);
+      res.json(requests);
+    } catch (error) {
+      console.error("Failed to fetch user repair requests:", error);
+      res.status(500).json({ message: "Failed to fetch repair requests" });
+    }
+  });
+
+  app.get("/api/repair-requests/available", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (req.user.role !== "TECHNICIAN") return res.sendStatus(403);
+    try {
+      const requests = await storage.getAvailableRepairRequests();
+      res.json(requests);
+    } catch (error) {
+      console.error("Failed to fetch available repair requests:", error);
+      res.status(500).json({ message: "Failed to fetch repair requests" });
+    }
+  });
+
+  app.get("/api/repair-requests/technician", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (req.user.role !== "TECHNICIAN") return res.sendStatus(403);
+    try {
+      const requests = await storage.getTechnicianRepairRequests(req.user.id);
+      res.json(requests);
+    } catch (error) {
+      console.error("Failed to fetch technician repair requests:", error);
+      res.status(500).json({ message: "Failed to fetch repair requests" });
+    }
+  });
+
+  app.patch("/api/repair-requests/:id/accept", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (req.user.role !== "TECHNICIAN") return res.sendStatus(403);
+
+    const { pickupDate, pickupAddress, technicianPhone, technicianEmail, pickupNotes } = req.body;
+
+    try {
+      await storage.acceptRepairRequest(
+        parseInt(req.params.id),
+        req.user.id,
+        new Date(pickupDate),
+        pickupAddress,
+        technicianPhone,
+        technicianEmail,
+        pickupNotes
+      );
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Failed to accept repair request:", error);
+      res.status(500).json({ message: "Failed to accept repair request" });
+    }
+  });
 
   // Pickup Request Routes
   app.post("/api/pickup-requests", async (req, res) => {

@@ -50,6 +50,8 @@ export interface IStorage {
   updateMarketplaceListingStatus(id: number, status: string): Promise<void>;
 
   // New repair request methods
+  createRepairRequest(request: InsertRepairRequest): Promise<RepairRequest>;
+  getRepairRequestsByUser(userId: number): Promise<RepairRequest[]>;
   getAvailableRepairRequests(): Promise<RepairRequest[]>;
   getTechnicianRepairRequests(technicianId: number): Promise<RepairRequest[]>;
   acceptRepairRequest(id: number, technicianId: number, pickupDate: Date, pickupAddress: string, technicianPhone: string, technicianEmail: string, pickupNotes?: string): Promise<void>;
@@ -356,6 +358,7 @@ export class DatabaseStorage implements IStorage {
       .insert(repairRequests)
       .values({
         ...request,
+        status: 'PENDING',
         createdAt: new Date(),
       })
       .returning();
@@ -372,12 +375,20 @@ export class DatabaseStorage implements IStorage {
     return newRequest;
   }
 
+  async getRepairRequestsByUser(userId: number): Promise<RepairRequest[]> {
+    return db
+      .select()
+      .from(repairRequests)
+      .where(eq(repairRequests.userId, userId))
+      .orderBy(sql`${repairRequests.createdAt} DESC`);
+  }
+
   async getAvailableRepairRequests(): Promise<RepairRequest[]> {
     return db
       .select()
       .from(repairRequests)
       .where(eq(repairRequests.status, 'PENDING'))
-      .orderBy(repairRequests.createdAt);
+      .orderBy(sql`${repairRequests.createdAt} DESC`);
   }
 
   async getTechnicianRepairRequests(technicianId: number): Promise<RepairRequest[]> {
@@ -385,7 +396,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(repairRequests)
       .where(eq(repairRequests.technicianId, technicianId))
-      .orderBy(repairRequests.createdAt);
+      .orderBy(sql`${repairRequests.createdAt} DESC`);
   }
 
   async acceptRepairRequest(
@@ -408,7 +419,7 @@ export class DatabaseStorage implements IStorage {
         .set({
           technicianId,
           status: 'ACCEPTED',
-          pickupDate: sql`${pickupDate}`,
+          pickupDate,
           pickupAddress,
           technicianPhone,
           technicianEmail,
