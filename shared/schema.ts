@@ -32,10 +32,12 @@ export type User = typeof users.$inferSelect;
 export const repairRequestSchema = z.object({
   deviceType: z.string().min(1, "Device type is required"),
   description: z.string().min(1, "Description is required"),
-  status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).default('PENDING'),
+  status: z.enum(['PENDING', 'ACCEPTED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).default('PENDING'),
   technicianId: z.number().optional(),
   estimatedCost: z.number().optional(),
   repairNotes: z.string().optional(),
+  pickupDate: z.date().optional(),
+  pickupAddress: z.string().optional(),
 });
 
 // Define the structure for e-waste items with carbon impact

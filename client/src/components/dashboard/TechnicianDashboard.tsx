@@ -7,7 +7,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { WrenchIcon, CheckCircle2Icon, ClockIcon, StoreIcon } from "lucide-react";
+import { WrenchIcon, CheckCircle2Icon, ClockIcon, StoreIcon, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
@@ -22,11 +22,52 @@ export default function TechnicianDashboard() {
   const { user } = useAuth();
   const [listingDialogOpen, setListingDialogOpen] = useState(false);
   const [selectedRepair, setSelectedRepair] = useState<RepairRequest | null>(null);
+  const [pickupDetailsOpen, setPickupDetailsOpen] = useState(false);
 
-  const { data: repairRequests } = useQuery<RepairRequest[]>({
+  const { data: availableRepairRequests } = useQuery<RepairRequest[]>({
+    queryKey: ["/api/repair-requests/available"],
+    enabled: !!user?.id,
+  });
+
+  const { data: myRepairRequests } = useQuery<RepairRequest[]>({
     queryKey: ["/api/repair-requests/technician"],
     enabled: !!user?.id,
   });
+
+  const acceptRepairRequest = async (repairId: number) => {
+    setSelectedRepair(availableRepairRequests?.find(r => r.id === repairId) || null);
+    setPickupDetailsOpen(true);
+  };
+
+  const submitPickupDetails = async (data: any) => {
+    try {
+      if (!selectedRepair) return;
+
+      await apiRequest("PATCH", `/api/repair-requests/${selectedRepair.id}/accept`, {
+        technicianId: user?.id,
+        status: "ACCEPTED",
+        pickupDate: data.pickupDate,
+        pickupAddress: data.pickupAddress
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/repair-requests/available"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/repair-requests/technician"] });
+
+      toast({
+        title: "Success",
+        description: "Repair request accepted successfully",
+      });
+
+      setPickupDetailsOpen(false);
+    } catch (error) {
+      console.error("Failed to accept repair request:", error);
+      toast({
+        title: "Error",
+        description: "Failed to accept repair request",
+        variant: "destructive",
+      });
+    }
+  };
 
   const updateRepairStatus = async (id: number, status: string, estimatedCost?: number) => {
     try {
@@ -59,35 +100,12 @@ export default function TechnicianDashboard() {
     }
   });
 
-  const onSubmitListing = async (data: z.infer<typeof insertMarketplaceListingSchema>) => {
-    try {
-      if (!selectedRepair) return;
-
-      await apiRequest("POST", "/api/marketplace-listings", {
-        ...data,
-        originalRepairId: selectedRepair.id,
-      });
-
-      queryClient.invalidateQueries({ queryKey: ["/api/marketplace-listings"] });
-      toast({
-        title: "Success",
-        description: "Item listed successfully in the marketplace",
-      });
-      setListingDialogOpen(false);
-      listingForm.reset();
-    } catch (error) {
-      console.error("Failed to create marketplace listing:", error);
-      toast({
-        title: "Error",
-        description: "Failed to list item in marketplace",
-        variant: "destructive",
-      });
+  const pickupForm = useForm({
+    defaultValues: {
+      pickupDate: new Date().toISOString().split('T')[0],
+      pickupAddress: "",
     }
-  };
-
-  const pendingRepairs = repairRequests?.filter((r) => r.status === "PENDING") || [];
-  const inProgressRepairs = repairRequests?.filter((r) => r.status === "IN_PROGRESS") || [];
-  const completedRepairs = repairRequests?.filter((r) => r.status === "COMPLETED") || [];
+  });
 
   return (
     <div className="space-y-6">
@@ -96,24 +114,28 @@ export default function TechnicianDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ClockIcon className="h-5 w-5" />
-              Pending Repairs
+              Available Requests
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{pendingRepairs.length}</p>
+            <p className="text-3xl font-bold">{availableRepairRequests?.length || 0}</p>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <WrenchIcon className="h-5 w-5" />
-              In Progress
+              My Active Repairs
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{inProgressRepairs.length}</p>
+            <p className="text-3xl font-bold">
+              {myRepairRequests?.filter(r => r.status === "IN_PROGRESS").length || 0}
+            </p>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -122,83 +144,44 @@ export default function TechnicianDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{completedRepairs.length}</p>
+            <p className="text-3xl font-bold">
+              {myRepairRequests?.filter(r => r.status === "COMPLETED").length || 0}
+            </p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Repair Requests</CardTitle>
+          <CardTitle>Available Repair Requests</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Status</TableHead>
                 <TableHead>Device</TableHead>
                 <TableHead>Description</TableHead>
-                <TableHead>Estimated Cost</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {repairRequests?.map((repair) => (
-                <TableRow key={repair.id}>
+              {availableRepairRequests?.map((request) => (
+                <TableRow key={request.id}>
+                  <TableCell>{request.deviceType}</TableCell>
+                  <TableCell>{request.description}</TableCell>
                   <TableCell>
-                    <Badge variant={
-                      repair.status === "COMPLETED" ? "default" :
-                      repair.status === "IN_PROGRESS" ? "secondary" : "outline"
-                    }>
-                      {repair.status}
+                    <Badge variant="outline">
+                      {request.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{repair.deviceType}</TableCell>
-                  <TableCell>{repair.description}</TableCell>
                   <TableCell>
-                    {repair.estimatedCost ? 
-                      `$${parseFloat(repair.estimatedCost.toString()).toFixed(2)}` : 
-                      'Pending'
-                    }
-                  </TableCell>
-                  <TableCell>
-                    {repair.status === "PENDING" && (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            const cost = window.prompt("Enter estimated repair cost:");
-                            if (cost && !isNaN(parseFloat(cost))) {
-                              updateRepairStatus(repair.id, "IN_PROGRESS", parseFloat(cost));
-                            }
-                          }}
-                        >
-                          Start Repair
-                        </Button>
-                      </div>
-                    )}
-                    {repair.status === "IN_PROGRESS" && (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => updateRepairStatus(repair.id, "COMPLETED")}
-                        >
-                          Complete
-                        </Button>
-                      </div>
-                    )}
-                    {repair.status === "COMPLETED" && (
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setSelectedRepair(repair);
-                          setListingDialogOpen(true);
-                        }}
-                      >
-                        <StoreIcon className="h-4 w-4 mr-2" />
-                        List in Marketplace
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      onClick={() => acceptRepairRequest(request.id)}
+                    >
+                      Accept Request
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -206,6 +189,123 @@ export default function TechnicianDashboard() {
           </Table>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>My Repair Requests</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Device</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Pickup Date</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {myRepairRequests?.map((request) => (
+                <TableRow key={request.id}>
+                  <TableCell>{request.deviceType}</TableCell>
+                  <TableCell>{request.description}</TableCell>
+                  <TableCell>
+                    <Badge variant={
+                      request.status === "COMPLETED" ? "default" :
+                      request.status === "IN_PROGRESS" ? "secondary" : "outline"
+                    }>
+                      {request.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {request.pickupDate ? new Date(request.pickupDate).toLocaleDateString() : 'Not scheduled'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      {request.status === "ACCEPTED" && (
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            const cost = window.prompt("Enter estimated repair cost:");
+                            if (cost && !isNaN(parseFloat(cost))) {
+                              updateRepairStatus(request.id, "IN_PROGRESS", parseFloat(cost));
+                            }
+                          }}
+                        >
+                          Start Repair
+                        </Button>
+                      )}
+                      {request.status === "IN_PROGRESS" && (
+                        <Button
+                          size="sm"
+                          onClick={() => updateRepairStatus(request.id, "COMPLETED")}
+                        >
+                          Complete
+                        </Button>
+                      )}
+                      {request.status === "COMPLETED" && (
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setSelectedRepair(request);
+                            setListingDialogOpen(true);
+                          }}
+                        >
+                          <StoreIcon className="h-4 w-4 mr-2" />
+                          List in Marketplace
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Dialog open={pickupDetailsOpen} onOpenChange={setPickupDetailsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule Pickup</DialogTitle>
+            <DialogDescription>
+              Set the pickup details for this repair request
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...pickupForm}>
+            <form onSubmit={pickupForm.handleSubmit(submitPickupDetails)} className="space-y-4">
+              <FormField
+                control={pickupForm.control}
+                name="pickupDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pickup Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={pickupForm.control}
+                name="pickupAddress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pickup Address</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Enter pickup address" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit">Confirm Pickup</Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={listingDialogOpen} onOpenChange={setListingDialogOpen}>
         <DialogContent>

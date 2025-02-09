@@ -49,6 +49,11 @@ export interface IStorage {
   getUserMarketplaceListings(userId: number): Promise<MarketplaceListing[]>;
   updateMarketplaceListingStatus(id: number, status: string): Promise<void>;
 
+  // New repair request methods
+  getAvailableRepairRequests(): Promise<RepairRequest[]>;
+  getTechnicianRepairRequests(technicianId: number): Promise<RepairRequest[]>;
+  acceptRepairRequest(id: number, technicianId: number, pickupDate: Date, pickupAddress: string): Promise<void>;
+
   sessionStore: session.Store;
 }
 
@@ -365,6 +370,55 @@ export class DatabaseStorage implements IStorage {
     });
 
     return newRequest;
+  }
+
+  async getAvailableRepairRequests(): Promise<RepairRequest[]> {
+    return db
+      .select()
+      .from(repairRequests)
+      .where(eq(repairRequests.status, 'PENDING'))
+      .orderBy(repairRequests.createdAt);
+  }
+
+  async getTechnicianRepairRequests(technicianId: number): Promise<RepairRequest[]> {
+    return db
+      .select()
+      .from(repairRequests)
+      .where(eq(repairRequests.technicianId, technicianId))
+      .orderBy(repairRequests.createdAt);
+  }
+
+  async acceptRepairRequest(
+    id: number,
+    technicianId: number,
+    pickupDate: Date,
+    pickupAddress: string
+  ): Promise<void> {
+    const [request] = await db
+      .select()
+      .from(repairRequests)
+      .where(eq(repairRequests.id, id));
+
+    if (request) {
+      await db
+        .update(repairRequests)
+        .set({
+          technicianId,
+          status: 'ACCEPTED',
+          pickupDate: sql`${pickupDate}`,
+          pickupAddress
+        })
+        .where(eq(repairRequests.id, id));
+
+      // Create notification for the user
+      await this.createNotification({
+        userId: request.userId,
+        title: "Repair Request Accepted",
+        message: `Your repair request has been accepted by a technician. Pickup scheduled for ${pickupDate.toLocaleDateString()}`,
+        type: "REPAIR_UPDATE",
+        createdAt: new Date()
+      });
+    }
   }
 }
 
