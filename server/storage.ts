@@ -116,10 +116,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePickupRequestImpact(id: number, carbonSaved: number, points: number): Promise<void> {
+    const [request] = await db
+      .select()
+      .from(pickupRequests)
+      .where(eq(pickupRequests.id, id));
+
     await db
       .update(pickupRequests)
       .set({ carbonSaved, pointsAwarded: points })
       .where(eq(pickupRequests.id, id));
+
+    if (request) {
+      // Update user's total carbon saved and points
+      await db
+        .update(users)
+        .set({ 
+          totalCarbonSaved: db.raw(`total_carbon_saved + ${carbonSaved}`),
+          points: db.raw(`points + ${points}`)
+        })
+        .where(eq(users.id, request.userId));
+
+      // Create achievement notification
+      await db.insert(notifications).values({
+        userId: request.userId,
+        title: "Environmental Impact",
+        message: `You've saved ${carbonSaved}kg of CO2 and earned ${points} points!`,
+        type: "ACHIEVEMENT",
+        createdAt: new Date(),
+      });
+    }
   }
 
   async getUser(id: number): Promise<User | undefined> {
@@ -142,10 +167,21 @@ export class DatabaseStorage implements IStorage {
       .insert(pickupRequests)
       .values({
         ...request,
+        userId: request.userId!, // User ID is now required
         scheduledDate: request.scheduledDate,
         createdAt: new Date(),
       })
       .returning();
+
+    // Create notification for recyclers
+    await db.insert(notifications).values({
+      userId: request.userId!,
+      title: "New Pickup Request",
+      message: `A new pickup request has been created for address: ${request.address}`,
+      type: "PICKUP_REQUEST",
+      createdAt: new Date(),
+    });
+
     return pickupRequest;
   }
 
@@ -165,10 +201,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePickupRequestStatus(id: number, status: string): Promise<void> {
+    const [request] = await db
+      .select()
+      .from(pickupRequests)
+      .where(eq(pickupRequests.id, id));
+
     await db
       .update(pickupRequests)
       .set({ status })
       .where(eq(pickupRequests.id, id));
+
+    // Create notification for user
+    if (request) {
+      await db.insert(notifications).values({
+        userId: request.userId,
+        title: "Pickup Request Update",
+        message: `Your pickup request status has been updated to ${status}`,
+        type: "STATUS_UPDATE",
+        createdAt: new Date(),
+      });
+    }
   }
 
   async createEducationalContent(content: InsertEducationalContent): Promise<EducationalContent> {

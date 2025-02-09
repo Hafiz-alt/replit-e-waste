@@ -53,6 +53,7 @@ export default function UserDashboard() {
       setIsSubmitting(true);
       await apiRequest("POST", "/api/pickup-requests", {
         ...data,
+        userId: user?.id, // Add user ID from auth context
         scheduledDate: new Date(data.scheduledDate).toISOString(),
         items: [{
           ...data.items[0],
