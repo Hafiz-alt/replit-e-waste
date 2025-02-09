@@ -1,0 +1,42 @@
+Dashboard Features:
+
+Admin Dashboard:
+
+User Management: View, edit, and delete user accounts. Monitor user roles and sign-ups.
+Pickup Request Management: Review, approve, or reassign e‑waste pickup requests submitted by users.
+Support Tickets: View and manage support tickets raised by users.
+Promotions & Content Moderation: Manage promotions, educational content, and system announcements.
+Analytics & Reports: Generate reports on recycling performance, user engagement, and overall system metrics.
+System Settings: Access configuration settings for the platform and manage integration settings (e.g., with Supabase).
+Recycler Dashboard:
+
+Pickup Requests: View a list of pickup requests assigned to recyclers.
+Item Details: Access details about each e‑waste item (category, condition, pricing).
+Status Updates: Update the status of each pickup request (e.g., Pending, In Process, Completed).
+Performance Metrics: See analytics related to recycling performance (number of items recycled, CO₂ savings).
+Technician Dashboard:
+
+Repair & Refurbishment Tasks: View and manage repair or refurbishment assignments.
+Task Status: Update the status of each task (e.g., In Progress, Completed).
+Work Order Details: Access details for each repair job, including item specifications and user instructions.
+Performance Tracking: Track completed tasks and receive feedback or rewards for efficiency.
+User Dashboard (General Users):
+
+Pickup Requests: Submit and view the status of e‑waste pickup requests.
+Notifications: Receive real-time notifications regarding the status of their requests, rewards, and system updates.
+Rewards & Leaderboard: View accumulated reward points, redeem rewards, and see their ranking on the leaderboard.
+Carbon Footprint Tracker: Track the environmental impact of their recycling efforts (e.g., CO₂ saved).
+Educational Resources: Access articles, videos, and tips on proper e‑waste disposal and sustainability.
+Support: Submit support tickets for any issues or questions regarding the service.
+Educator Dashboard:
+
+Content Management: Upload and manage educational content (articles, videos, infographics).
+Engagement Metrics: View statistics on how users interact with the educational content.
+Workshop Scheduling: (Optional) Organize and manage online workshops or training sessions.
+Community Interaction: Respond to user comments and feedback on educational materials.
+Business Dashboard (Optional/If Applicable):
+
+Bulk Pickup Requests: Submit and track bulk e‑waste pickup requests.
+CSR & Analytics: Monitor corporate recycling contributions and receive CSR certificates.
+Promotions & Offers: View special promotions or discounts tailored for business users.
+Performance Metrics: Access analytics on the company's e‑waste contributions and recycling impact.

@@ -14,13 +14,21 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
 });
 
+// Define the structure for e-waste items
+export const WasteItemSchema = z.object({
+  type: z.string(),
+  description: z.string(),
+  quantity: z.number().optional(),
+  condition: z.string().optional(),
+});
+
 export const pickupRequests = pgTable("pickup_requests", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   status: text("status").notNull(),
   address: text("address").notNull(),
   scheduledDate: timestamp("scheduled_date").notNull(),
-  items: json("items").notNull(),
+  items: json("items").$type<z.infer<typeof WasteItemSchema>[]>().notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -41,11 +49,14 @@ export const supportTickets = pgTable("support_tickets", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Create extended schemas that include all fields for forms
 export const insertUserSchema = createInsertSchema(users);
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
-export const insertPickupRequestSchema = createInsertSchema(pickupRequests);
+export const insertPickupRequestSchema = createInsertSchema(pickupRequests).extend({
+  items: z.array(WasteItemSchema),
+});
 export type InsertPickupRequest = z.infer<typeof insertPickupRequestSchema>;
 export type PickupRequest = typeof pickupRequests.$inferSelect;
 
