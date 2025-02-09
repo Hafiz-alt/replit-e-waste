@@ -99,21 +99,11 @@ export default function UserDashboard() {
         status: "PENDING",
         deviceType: "",
         description: "",
-        technicianId: undefined,
       }
     });
 
     const onSubmitRepair = async (data: z.infer<typeof insertRepairRequestSchema>) => {
       try {
-        if (!data.technicianId) {
-          toast({
-            title: "Error",
-            description: "Please select a technician",
-            variant: "destructive",
-          });
-          return;
-        }
-
         await apiRequest("POST", "/api/repair-requests", {
           ...data,
           userId: user?.id,
@@ -159,30 +149,6 @@ export default function UserDashboard() {
                 <FormLabel>Issue Description</FormLabel>
                 <FormControl>
                   <Textarea {...field} placeholder="Describe the issue with your device" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={repairForm.control}
-            name="technicianId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Select Technician</FormLabel>
-                <FormControl>
-                  <select
-                    {...field}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    onChange={(e) => field.onChange(parseInt(e.target.value))}
-                  >
-                    <option value="">Select a technician</option>
-                    {technicians?.map((technician) => (
-                      <option key={technician.id} value={technician.id}>
-                        {technician.name} - {technician.email}
-                      </option>
-                    ))}
-                  </select>
                 </FormControl>
                 <FormMessage />
               </FormItem>
