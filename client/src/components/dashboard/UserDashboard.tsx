@@ -98,19 +98,19 @@ export default function UserDashboard() {
 
   const RepairRequestForm = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const repairForm = useForm({
+    const repairForm = useForm<z.infer<typeof insertRepairRequestSchema>>({
       resolver: zodResolver(insertRepairRequestSchema),
       defaultValues: {
         status: "PENDING",
         deviceType: "",
         description: "",
+        userId: user?.id, // Add userId to form defaults
       }
     });
 
     const onSubmitRepair = async (data: z.infer<typeof insertRepairRequestSchema>) => {
       try {
         setIsSubmitting(true);
-        console.log('Submitting repair request:', data);
         await apiRequest("POST", "/api/repair-requests", {
           ...data,
           userId: user?.id,

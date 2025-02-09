@@ -355,16 +355,22 @@ export class DatabaseStorage implements IStorage {
     const [newRequest] = await db
       .insert(repairRequests)
       .values({
-        ...request,
+        userId: request.userId,
+        status: request.status,
+        deviceType: request.deviceType,
+        description: request.description,
         createdAt: new Date(),
+        technicianId: null,
+        estimatedCost: null,
+        repairNotes: null,
       })
       .returning();
 
-    // Create notification for assigned technician
-    await db.insert(notifications).values({
-      userId: request.technicianId!,
+    // Create notification for technicians if needed
+    await this.createNotification({
+      userId: request.userId,
       title: "New Repair Request",
-      message: `You have been assigned a new repair request for ${request.deviceType}`,
+      message: `A new repair request has been created for ${request.deviceType}`,
       type: "REPAIR_REQUEST",
       createdAt: new Date(),
     });
@@ -405,8 +411,6 @@ export class DatabaseStorage implements IStorage {
         .set({
           technicianId,
           status: 'ACCEPTED',
-          pickupDate: sql`${pickupDate}`,
-          pickupAddress
         })
         .where(eq(repairRequests.id, id));
 
@@ -414,7 +418,7 @@ export class DatabaseStorage implements IStorage {
       await this.createNotification({
         userId: request.userId,
         title: "Repair Request Accepted",
-        message: `Your repair request has been accepted by a technician. Pickup scheduled for ${pickupDate.toLocaleDateString()}`,
+        message: `Your repair request has been accepted by a technician.`,
         type: "REPAIR_UPDATE",
         createdAt: new Date()
       });
