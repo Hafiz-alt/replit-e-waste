@@ -1,7 +1,7 @@
-import { User, InsertUser, PickupRequest, InsertPickupRequest, EducationalContent, InsertEducationalContent, SupportTicket, InsertSupportTicket } from "@shared/schema";
+import { User, InsertUser, PickupRequest, InsertPickupRequest, EducationalContent, InsertEducationalContent, SupportTicket, InsertSupportTicket, Notification, InsertNotification, Achievement, InsertAchievement } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
-import { users, pickupRequests, educationalContent, supportTickets } from "@shared/schema";
+import { users, pickupRequests, educationalContent, supportTickets, notifications, achievements } from "@shared/schema";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -14,25 +14,33 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserPoints(userId: number, points: number): Promise<void>;
+  updateUserCarbonSaved(userId: number, carbonSaved: number): Promise<void>;
 
   // Pickup request operations
   createPickupRequest(request: InsertPickupRequest): Promise<PickupRequest>;
   getPickupRequest(id: number): Promise<PickupRequest | undefined>;
   getPickupRequestsByUser(userId: number): Promise<PickupRequest[]>;
   updatePickupRequestStatus(id: number, status: string): Promise<void>;
+  updatePickupRequestImpact(id: number, carbonSaved: number, points: number): Promise<void>;
 
-  // Educational content operations
+  // Notification operations
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  getNotificationsByUser(userId: number): Promise<Notification[]>;
+  markNotificationAsRead(id: number): Promise<void>;
+
+  // Achievement operations
+  createAchievement(achievement: InsertAchievement): Promise<Achievement>;
+  getAchievementsByUser(userId: number): Promise<Achievement[]>;
+
+  // Existing operations remain unchanged...
   createEducationalContent(content: InsertEducationalContent): Promise<EducationalContent>;
   getEducationalContent(id: number): Promise<EducationalContent | undefined>;
   getAllEducationalContent(): Promise<EducationalContent[]>;
-
-  // Support ticket operations
   createSupportTicket(ticket: InsertSupportTicket): Promise<SupportTicket>;
   getSupportTicket(id: number): Promise<SupportTicket | undefined>;
   getSupportTicketsByUser(userId: number): Promise<SupportTicket[]>;
   updateSupportTicketStatus(id: number, status: string): Promise<void>;
-
-  // Marketplace operations
   createMarketplaceListing(listing: InsertMarketplaceListing): Promise<MarketplaceListing>;
   getMarketplaceListing(id: number): Promise<MarketplaceListing | undefined>;
   getAllMarketplaceListings(): Promise<MarketplaceListing[]>;
@@ -52,6 +60,68 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  // Implement new methods
+
+  async updateUserPoints(userId: number, points: number): Promise<void> {
+    await db
+      .update(users)
+      .set({ points: db.raw(`points + ${points}`) })
+      .where(eq(users.id, userId));
+  }
+
+  async updateUserCarbonSaved(userId: number, carbonSaved: number): Promise<void> {
+    await db
+      .update(users)
+      .set({ totalCarbonSaved: db.raw(`total_carbon_saved + ${carbonSaved}`) })
+      .where(eq(users.id, userId));
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [newNotification] = await db
+      .insert(notifications)
+      .values(notification)
+      .returning();
+    return newNotification;
+  }
+
+  async getNotificationsByUser(userId: number): Promise<Notification[]> {
+    return db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(notifications.createdAt);
+  }
+
+  async markNotificationAsRead(id: number): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ read: true })
+      .where(eq(notifications.id, id));
+  }
+
+  async createAchievement(achievement: InsertAchievement): Promise<Achievement> {
+    const [newAchievement] = await db
+      .insert(achievements)
+      .values(achievement)
+      .returning();
+    return newAchievement;
+  }
+
+  async getAchievementsByUser(userId: number): Promise<Achievement[]> {
+    return db
+      .select()
+      .from(achievements)
+      .where(eq(achievements.userId, userId))
+      .orderBy(achievements.earnedAt);
+  }
+
+  async updatePickupRequestImpact(id: number, carbonSaved: number, points: number): Promise<void> {
+    await db
+      .update(pickupRequests)
+      .set({ carbonSaved, pointsAwarded: points })
+      .where(eq(pickupRequests.id, id));
+  }
+
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
@@ -62,9 +132,9 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
-    return user;
+  async createUser(user: InsertUser): Promise<User> {
+    const [newUser] = await db.insert(users).values(user).returning();
+    return newUser;
   }
 
   async createPickupRequest(request: InsertPickupRequest): Promise<PickupRequest> {

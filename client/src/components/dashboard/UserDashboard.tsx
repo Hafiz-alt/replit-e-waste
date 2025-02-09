@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPickupRequestSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { CalendarIcon, Package2Icon, TicketIcon, LoaderIcon } from "lucide-react";
+import { CalendarIcon, Package2Icon, TicketIcon, LoaderIcon, LeafIcon, TrophyIcon } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MarketplaceView from "@/components/marketplace/MarketplaceView";
 import type { z } from "zod";
+import { useAuth } from "@/hooks/use-auth";
 
 type FormData = z.infer<typeof insertPickupRequestSchema>;
 
@@ -24,6 +25,7 @@ export default function UserDashboard() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const { data: pickupRequests, isLoading: isLoadingRequests } = useQuery<PickupRequest[]>({
     queryKey: ["/api/pickup-requests/user"],
@@ -40,7 +42,8 @@ export default function UserDashboard() {
       items: [{
         type: 'general',
         description: 'General e-waste pickup',
-        quantity: 1
+        quantity: 1,
+        estimatedCarbonImpact: 2.5 // Default carbon impact in kg CO2
       }],
     },
   });
@@ -71,6 +74,10 @@ export default function UserDashboard() {
     }
   };
 
+  // Calculate total carbon saved and points
+  const totalCarbonSaved = user?.totalCarbonSaved || 0;
+  const totalPoints = user?.points || 0;
+
   return (
     <div className="space-y-6 p-6 bg-white dark:bg-gray-900 min-h-screen">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8">
@@ -80,11 +87,6 @@ export default function UserDashboard() {
             Welcome to your e-waste management dashboard
           </p>
         </div>
-        <img
-          src="https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?w=800&auto=format&fit=crop"
-          alt="E-waste recycling"
-          className="w-full md:w-1/3 rounded-lg shadow-lg object-cover h-48"
-        />
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
@@ -106,20 +108,35 @@ export default function UserDashboard() {
                 <p className="text-3xl font-bold">{pickupRequests?.length || 0}</p>
               </CardContent>
             </Card>
+
             <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <TicketIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  Support Tickets
+                  <LeafIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  Carbon Saved
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{supportTickets?.length || 0}</p>
+                <p className="text-3xl font-bold">{totalCarbonSaved.toFixed(2)} kg</p>
+                <p className="text-sm text-muted-foreground">CO₂ equivalent</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900 dark:to-amber-900">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrophyIcon className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                  Reward Points
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{totalPoints}</p>
+                <p className="text-sm text-muted-foreground">Total points earned</p>
               </CardContent>
             </Card>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end mt-6">
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-green-600 hover:bg-green-700">
@@ -152,11 +169,15 @@ export default function UserDashboard() {
                     <FormField
                       control={form.control}
                       name="scheduledDate"
-                      render={({ field }) => (
+                      render={({ field: { value, ...field } }) => (
                         <FormItem>
                           <FormLabel>Preferred Date</FormLabel>
                           <FormControl>
-                            <Input type="datetime-local" {...field} />
+                            <Input 
+                              type="datetime-local" 
+                              {...field}
+                              value={value instanceof Date ? value.toISOString().slice(0, 16) : value}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -182,7 +203,7 @@ export default function UserDashboard() {
             </Dialog>
           </div>
 
-          <Card>
+          <Card className="mt-6">
             <CardHeader>
               <CardTitle>Recent Pickup Requests</CardTitle>
             </CardHeader>
@@ -198,6 +219,8 @@ export default function UserDashboard() {
                       <TableHead>Status</TableHead>
                       <TableHead>Address</TableHead>
                       <TableHead>Scheduled Date</TableHead>
+                      <TableHead>Carbon Impact</TableHead>
+                      <TableHead>Points</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -215,6 +238,8 @@ export default function UserDashboard() {
                         <TableCell>
                           {new Date(request.scheduledDate).toLocaleDateString()}
                         </TableCell>
+                        <TableCell>{request.carbonSaved} kg CO₂</TableCell>
+                        <TableCell>{request.pointsAwarded} pts</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
