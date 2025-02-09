@@ -355,18 +355,12 @@ export class DatabaseStorage implements IStorage {
     const [newRequest] = await db
       .insert(repairRequests)
       .values({
-        userId: request.userId,
-        status: request.status,
-        deviceType: request.deviceType,
-        description: request.description,
+        ...request,
         createdAt: new Date(),
-        technicianId: null,
-        estimatedCost: null,
-        repairNotes: null,
       })
       .returning();
 
-    // Create notification for technicians if needed
+    // Create notification for technicians
     await this.createNotification({
       userId: request.userId,
       title: "New Repair Request",

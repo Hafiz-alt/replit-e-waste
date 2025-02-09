@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { WrenchIcon, CheckCircle2Icon, ClockIcon, StoreIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
@@ -24,7 +24,7 @@ export default function TechnicianDashboard() {
   const [selectedRepair, setSelectedRepair] = useState<RepairRequest | null>(null);
   const [pickupDetailsOpen, setPickupDetailsOpen] = useState(false);
 
-  const { data: availableRepairRequests, refetch: refetchAvailable } = useQuery<RepairRequest[]>({
+  const { data: availableRepairRequests } = useQuery<RepairRequest[]>({
     queryKey: ["/api/repair-requests/available"],
     enabled: !!user?.id,
     refetchInterval: 5000, // Poll every 5 seconds for new requests
@@ -34,6 +34,44 @@ export default function TechnicianDashboard() {
     queryKey: ["/api/repair-requests/technician"],
     enabled: !!user?.id,
   });
+
+  const listingForm = useForm<z.infer<typeof insertMarketplaceListingSchema>>({
+    resolver: zodResolver(insertMarketplaceListingSchema),
+    defaultValues: {
+      status: 'AVAILABLE',
+      condition: 'GOOD',
+      isRefurbished: true,
+    }
+  });
+
+  const onSubmitListing = async (data: z.infer<typeof insertMarketplaceListingSchema>) => {
+    try {
+      if (!selectedRepair || !user) return;
+
+      await apiRequest("POST", "/api/marketplace/listings", {
+        ...data,
+        sellerId: user.id,
+        originalRepairId: selectedRepair.id,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings"] });
+
+      toast({
+        title: "Success",
+        description: "Item listed successfully in the marketplace",
+      });
+
+      setListingDialogOpen(false);
+      listingForm.reset();
+    } catch (error) {
+      console.error("Failed to create marketplace listing:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create marketplace listing",
+        variant: "destructive",
+      });
+    }
+  };
 
   const acceptRepairRequest = async (repairId: number) => {
     setSelectedRepair(availableRepairRequests?.find(r => r.id === repairId) || null);
@@ -93,44 +131,6 @@ export default function TechnicianDashboard() {
       });
     }
   };
-
-  const onSubmitListing = async (data: z.infer<typeof insertMarketplaceListingSchema>) => {
-    try {
-      if (!selectedRepair || !user) return;
-
-      await apiRequest("POST", "/api/marketplace/listings", {
-        ...data,
-        sellerId: user.id,
-        originalRepairId: selectedRepair.id,
-      });
-
-      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings"] });
-
-      toast({
-        title: "Success",
-        description: "Item listed successfully in the marketplace",
-      });
-
-      setListingDialogOpen(false);
-      listingForm.reset();
-    } catch (error) {
-      console.error("Failed to create marketplace listing:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create marketplace listing",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const listingForm = useForm<z.infer<typeof insertMarketplaceListingSchema>>({
-    resolver: zodResolver(insertMarketplaceListingSchema),
-    defaultValues: {
-      status: 'AVAILABLE',
-      condition: 'GOOD',
-      isRefurbished: true,
-    }
-  });
 
   const pickupForm = useForm({
     defaultValues: {
