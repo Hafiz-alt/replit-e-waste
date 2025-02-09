@@ -7,6 +7,7 @@ import { ProtectedRoute } from "./lib/protected-route";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
 import Dashboard from "@/pages/dashboard";
+import Chatbot from "@/components/chat/Chatbot";
 
 function Router() {
   return (
@@ -23,6 +24,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Router />
+        <Chatbot />
         <Toaster />
       </AuthProvider>
     </QueryClientProvider>

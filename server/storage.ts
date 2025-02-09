@@ -1,7 +1,7 @@
-import { User, InsertUser, PickupRequest, InsertPickupRequest, EducationalContent, InsertEducationalContent, SupportTicket, InsertSupportTicket, Notification, InsertNotification, Achievement, InsertAchievement } from "@shared/schema";
+import { User, InsertUser, PickupRequest, InsertPickupRequest, EducationalContent, InsertEducationalContent, SupportTicket, InsertSupportTicket, Notification, InsertNotification, Achievement, InsertAchievement, RepairRequest, InsertRepairRequest } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql } from "drizzle-orm";
-import { users, pickupRequests, educationalContent, supportTickets, notifications, achievements } from "@shared/schema";
+import { users, pickupRequests, educationalContent, supportTickets, notifications, achievements, repairRequests } from "@shared/schema";
 import { marketplaceListings, MarketplaceListing, InsertMarketplaceListing } from "@shared/schema";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
@@ -66,8 +66,8 @@ export class DatabaseStorage implements IStorage {
   async updateUserPoints(userId: number, points: number): Promise<void> {
     await db
       .update(users)
-      .set({ 
-        points: sql`${users.points} + ${points}` 
+      .set({
+        points: sql`${users.points} + ${points}`
       })
       .where(eq(users.id, userId));
   }
@@ -75,8 +75,8 @@ export class DatabaseStorage implements IStorage {
   async updateUserCarbonSaved(userId: number, carbonSaved: number): Promise<void> {
     await db
       .update(users)
-      .set({ 
-        totalCarbonSaved: sql`${users.totalCarbonSaved} + ${carbonSaved}` 
+      .set({
+        totalCarbonSaved: sql`${users.totalCarbonSaved} + ${carbonSaved}`
       })
       .where(eq(users.id, userId));
   }
@@ -90,9 +90,9 @@ export class DatabaseStorage implements IStorage {
     if (request) {
       await db
         .update(pickupRequests)
-        .set({ 
+        .set({
           carbonSaved: sql`${carbonSaved}`,
-          pointsAwarded: points 
+          pointsAwarded: points
         })
         .where(eq(pickupRequests.id, id));
 
@@ -344,6 +344,27 @@ export class DatabaseStorage implements IStorage {
       .from(achievements)
       .where(eq(achievements.userId, userId))
       .orderBy(achievements.earnedAt);
+  }
+
+  async createRepairRequest(request: InsertRepairRequest): Promise<RepairRequest> {
+    const [newRequest] = await db
+      .insert(repairRequests)
+      .values({
+        ...request,
+        createdAt: new Date(),
+      })
+      .returning();
+
+    // Create notification for assigned technician
+    await db.insert(notifications).values({
+      userId: request.technicianId!,
+      title: "New Repair Request",
+      message: `You have been assigned a new repair request for ${request.deviceType}`,
+      type: "REPAIR_REQUEST",
+      createdAt: new Date(),
+    });
+
+    return newRequest;
   }
 }
 
