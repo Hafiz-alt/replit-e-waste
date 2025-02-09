@@ -97,6 +97,7 @@ export default function UserDashboard() {
   const totalPoints = parseInt(user?.points?.toString() || '0');
 
   const RepairRequestForm = () => {
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const repairForm = useForm({
       resolver: zodResolver(insertRepairRequestSchema),
       defaultValues: {
@@ -108,12 +109,14 @@ export default function UserDashboard() {
 
     const onSubmitRepair = async (data: z.infer<typeof insertRepairRequestSchema>) => {
       try {
+        setIsSubmitting(true);
         console.log('Submitting repair request:', data);
         await apiRequest("POST", "/api/repair-requests", {
           ...data,
           userId: user?.id,
           status: "PENDING",
         });
+
         queryClient.invalidateQueries({ queryKey: ["/api/repair-requests/user"] });
         toast({
           title: "Success",
@@ -121,13 +124,15 @@ export default function UserDashboard() {
         });
         setRepairDialogOpen(false);
         repairForm.reset();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to create repair request:", error);
         toast({
           title: "Error",
-          description: "Failed to submit repair request. Please try again.",
+          description: error?.message || "Failed to submit repair request. Please try again.",
           variant: "destructive",
         });
+      } finally {
+        setIsSubmitting(false);
       }
     };
 
@@ -160,7 +165,16 @@ export default function UserDashboard() {
               </FormItem>
             )}
           />
-          <Button type="submit">Submit Repair Request</Button>
+          <Button type="submit" disabled={isSubmitting} className="w-full">
+            {isSubmitting ? (
+              <>
+                <LoaderIcon className="mr-2 h-4 w-4 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              'Submit Repair Request'
+            )}
+          </Button>
         </form>
       </Form>
     );
