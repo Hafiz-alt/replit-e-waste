@@ -64,6 +64,7 @@ export class DatabaseStorage implements IStorage {
       .insert(pickupRequests)
       .values({
         ...request,
+        scheduledDate: request.scheduledDate,
         createdAt: new Date(),
       })
       .returning();

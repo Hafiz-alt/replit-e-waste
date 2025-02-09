@@ -43,7 +43,8 @@ export default function UserDashboard() {
     try {
       await apiRequest("POST", "/api/pickup-requests", {
         ...data,
-        scheduledDate: new Date(data.scheduledDate).toISOString()
+        // The schema will handle the date conversion
+        scheduledDate: data.scheduledDate
       });
       queryClient.invalidateQueries({ queryKey: ["/api/pickup-requests/user"] });
       toast({
