@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -77,3 +77,30 @@ export type EducationalContent = typeof educationalContent.$inferSelect;
 export const insertSupportTicketSchema = createInsertSchema(supportTickets);
 export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
 export type SupportTicket = typeof supportTickets.$inferSelect;
+
+// New marketplace schemas
+export const ItemCondition = z.enum(['NEW', 'LIKE_NEW', 'GOOD', 'FAIR', 'POOR']);
+export type ItemCondition = z.infer<typeof ItemCondition>;
+
+export const marketplaceListings = pgTable("marketplace_listings", {
+  id: serial("id").primaryKey(),
+  sellerId: integer("seller_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  condition: text("condition").$type<ItemCondition>().notNull(),
+  images: json("images").$type<string[]>().notNull(),
+  status: text("status").notNull().default('AVAILABLE'),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertMarketplaceListingSchema = createInsertSchema(marketplaceListings, {
+  images: z.array(z.string()).default([]),
+  status: z.string().default('AVAILABLE'),
+}).extend({
+  condition: ItemCondition,
+  price: z.number().positive("Price must be greater than 0"),
+});
+
+export type InsertMarketplaceListing = z.infer<typeof insertMarketplaceListingSchema>;
+export type MarketplaceListing = typeof marketplaceListings.$inferSelect;

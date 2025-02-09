@@ -5,6 +5,7 @@ import { users, pickupRequests, educationalContent, supportTickets } from "@shar
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
+import { marketplaceListings, MarketplaceListing, InsertMarketplaceListing } from "@shared/schema";
 
 const PostgresSessionStore = connectPg(session);
 
@@ -30,6 +31,13 @@ export interface IStorage {
   getSupportTicket(id: number): Promise<SupportTicket | undefined>;
   getSupportTicketsByUser(userId: number): Promise<SupportTicket[]>;
   updateSupportTicketStatus(id: number, status: string): Promise<void>;
+
+  // Marketplace operations
+  createMarketplaceListing(listing: InsertMarketplaceListing): Promise<MarketplaceListing>;
+  getMarketplaceListing(id: number): Promise<MarketplaceListing | undefined>;
+  getAllMarketplaceListings(): Promise<MarketplaceListing[]>;
+  getUserMarketplaceListings(userId: number): Promise<MarketplaceListing[]>;
+  updateMarketplaceListingStatus(id: number, status: string): Promise<void>;
 
   sessionStore: session.Store;
 }
@@ -147,6 +155,43 @@ export class DatabaseStorage implements IStorage {
       .update(supportTickets)
       .set({ status })
       .where(eq(supportTickets.id, id));
+  }
+
+  async createMarketplaceListing(listing: InsertMarketplaceListing): Promise<MarketplaceListing> {
+    const [newListing] = await db
+      .insert(marketplaceListings)
+      .values({
+        ...listing,
+        createdAt: new Date(),
+      })
+      .returning();
+    return newListing;
+  }
+
+  async getMarketplaceListing(id: number): Promise<MarketplaceListing | undefined> {
+    const [listing] = await db
+      .select()
+      .from(marketplaceListings)
+      .where(eq(marketplaceListings.id, id));
+    return listing;
+  }
+
+  async getAllMarketplaceListings(): Promise<MarketplaceListing[]> {
+    return db.select().from(marketplaceListings);
+  }
+
+  async getUserMarketplaceListings(userId: number): Promise<MarketplaceListing[]> {
+    return db
+      .select()
+      .from(marketplaceListings)
+      .where(eq(marketplaceListings.sellerId, userId));
+  }
+
+  async updateMarketplaceListingStatus(id: number, status: string): Promise<void> {
+    await db
+      .update(marketplaceListings)
+      .set({ status })
+      .where(eq(marketplaceListings.id, id));
   }
 }
 
