@@ -7,7 +7,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { WrenchIcon, CheckCircle2Icon, ClockIcon, StoreIcon, Calendar } from "lucide-react";
+import { WrenchIcon, CheckCircle2Icon, ClockIcon, StoreIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
@@ -24,9 +24,10 @@ export default function TechnicianDashboard() {
   const [selectedRepair, setSelectedRepair] = useState<RepairRequest | null>(null);
   const [pickupDetailsOpen, setPickupDetailsOpen] = useState(false);
 
-  const { data: availableRepairRequests } = useQuery<RepairRequest[]>({
+  const { data: availableRepairRequests, refetch: refetchAvailable } = useQuery<RepairRequest[]>({
     queryKey: ["/api/repair-requests/available"],
     enabled: !!user?.id,
+    refetchInterval: 5000, // Poll every 5 seconds for new requests
   });
 
   const { data: myRepairRequests } = useQuery<RepairRequest[]>({
@@ -47,7 +48,10 @@ export default function TechnicianDashboard() {
         technicianId: user?.id,
         status: "ACCEPTED",
         pickupDate: data.pickupDate,
-        pickupAddress: data.pickupAddress
+        pickupAddress: data.pickupAddress,
+        technicianPhone: data.technicianPhone,
+        technicianEmail: data.technicianEmail,
+        pickupNotes: data.pickupNotes
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/repair-requests/available"] });
@@ -55,7 +59,7 @@ export default function TechnicianDashboard() {
 
       toast({
         title: "Success",
-        description: "Repair request accepted successfully",
+        description: "Repair request accepted and contact details shared",
       });
 
       setPickupDetailsOpen(false);
@@ -132,6 +136,9 @@ export default function TechnicianDashboard() {
     defaultValues: {
       pickupDate: new Date().toISOString().split('T')[0],
       pickupAddress: "",
+      technicianPhone: "",
+      technicianEmail: "",
+      pickupNotes: ""
     }
   });
 
@@ -296,9 +303,9 @@ export default function TechnicianDashboard() {
       <Dialog open={pickupDetailsOpen} onOpenChange={setPickupDetailsOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Schedule Pickup</DialogTitle>
+            <DialogTitle>Schedule Pickup & Share Contact Details</DialogTitle>
             <DialogDescription>
-              Set the pickup details for this repair request
+              Set pickup details and provide your contact information for the customer
             </DialogDescription>
           </DialogHeader>
           <Form {...pickupForm}>
@@ -329,7 +336,46 @@ export default function TechnicianDashboard() {
                   </FormItem>
                 )}
               />
-              <Button type="submit">Confirm Pickup</Button>
+              <FormField
+                control={pickupForm.control}
+                name="technicianPhone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Your Contact Number</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Enter your phone number" type="tel" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={pickupForm.control}
+                name="technicianEmail"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Your Email</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Enter your email" type="email" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={pickupForm.control}
+                name="pickupNotes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Additional Notes</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} placeholder="Any additional instructions for pickup" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit">Confirm & Share Details</Button>
             </form>
           </Form>
         </DialogContent>

@@ -52,7 +52,7 @@ export interface IStorage {
   // New repair request methods
   getAvailableRepairRequests(): Promise<RepairRequest[]>;
   getTechnicianRepairRequests(technicianId: number): Promise<RepairRequest[]>;
-  acceptRepairRequest(id: number, technicianId: number, pickupDate: Date, pickupAddress: string): Promise<void>;
+  acceptRepairRequest(id: number, technicianId: number, pickupDate: Date, pickupAddress: string, technicianPhone: string, technicianEmail: string, pickupNotes?: string): Promise<void>;
 
   sessionStore: session.Store;
 }
@@ -398,7 +398,10 @@ export class DatabaseStorage implements IStorage {
     id: number,
     technicianId: number,
     pickupDate: Date,
-    pickupAddress: string
+    pickupAddress: string,
+    technicianPhone: string,
+    technicianEmail: string,
+    pickupNotes?: string
   ): Promise<void> {
     const [request] = await db
       .select()
@@ -411,14 +414,21 @@ export class DatabaseStorage implements IStorage {
         .set({
           technicianId,
           status: 'ACCEPTED',
+          pickupDate: sql`${pickupDate}`,
+          pickupAddress,
+          technicianPhone,
+          technicianEmail,
+          pickupNotes
         })
         .where(eq(repairRequests.id, id));
 
-      // Create notification for the user
+      // Create notification for the user with contact details
       await this.createNotification({
         userId: request.userId,
         title: "Repair Request Accepted",
-        message: `Your repair request has been accepted by a technician.`,
+        message: `Your repair request has been accepted by a technician. 
+                 Pickup scheduled for ${pickupDate.toLocaleDateString()}. 
+                 Contact: ${technicianPhone} / ${technicianEmail}`,
         type: "REPAIR_UPDATE",
         createdAt: new Date()
       });

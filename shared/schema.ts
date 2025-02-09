@@ -61,7 +61,7 @@ export const pickupRequests = pgTable("pickup_requests", {
   pointsAwarded: integer("points_awarded").notNull().default(0),
 });
 
-// New repair requests table
+// Update repair requests table to include contact and pickup details
 export const repairRequests = pgTable("repair_requests", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
@@ -72,6 +72,11 @@ export const repairRequests = pgTable("repair_requests", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   estimatedCost: decimal("estimated_cost", { precision: 10, scale: 2 }),
   repairNotes: text("repair_notes"),
+  pickupDate: timestamp("pickup_date"),
+  pickupAddress: text("pickup_address"),
+  technicianPhone: text("technician_phone"),
+  technicianEmail: text("technician_email"),
+  pickupNotes: text("pickup_notes"),
 });
 
 // New notifications table
