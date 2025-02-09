@@ -1,0 +1,73 @@
+Project Title:
+E-Waste Management System
+
+Project Overview:
+Our project is a full-stack e‑waste management system designed to revolutionize how electronic waste is handled, processed, and repurposed. The platform connects various stakeholders—including regular users, recyclers, technicians, educators, business users, and admins—in a centralized, role-based ecosystem. The system enables each user type to register, log in, and, based on their role, be redirected to their corresponding dashboard where they can access tailored functionalities.
+
+Key Features:
+
+User Management & Authentication:
+
+Registration & Login:
+Users can register by providing their name, email, password, and selecting a role (e.g., User, Recycler, Technician, Educator, Admin, Business).
+Upon login, the system authenticates the user and queries the database to determine their role. Based on the role, the user is redirected to the appropriate dashboard.
+Roles Include:
+Regular Users: Can request e‑waste pickups, track requests, view notifications, and access educational content.
+Recyclers: Can view and manage pickup requests, see details of e‑waste items, and track recycling performance.
+Technicians: Can manage repair or refurbishment tasks, update item statuses, and mark tasks as complete.
+Educators: Can upload and manage educational resources on e‑waste, run awareness campaigns, and monitor content engagement.
+Business Users: Can request bulk pickups, track CSR contributions, and manage company-specific recycling data.
+Admins: Have overarching control to manage users, review and approve pickup requests, monitor support tickets, manage promotions, and generate analytical reports.
+E-Waste Collection & Processing:
+
+Pickup Requests:
+Users submit requests to have their e‑waste collected, specifying the pickup address and scheduling details.
+Recycling Centers:
+Recyclers update the status of pickup requests and process e‑waste items, ensuring they are handled responsibly.
+Marketplace & Order Processing:
+
+E-Waste Items:
+The system tracks items (including refurbished electronics) with details such as category, condition, pricing, and quantity.
+Cart & Orders:
+Users can add items to a cart, place orders, and leave feedback for products.
+Gamification & Environmental Impact:
+
+Rewards & Leaderboard:
+Users earn points for recycling and can see their ranking on a leaderboard.
+Carbon Footprint Tracker:
+The system calculates and displays the environmental impact (e.g., CO₂ saved) of users’ recycling efforts.
+Communication & Support:
+
+Support Tickets & Notifications:
+Users can submit support queries, and the system sends notifications about request status, promotions, and educational updates.
+Promotions & Educational Content:
+Dedicated modules for managing special offers and educational materials.
+Workflow Summary:
+
+Landing Page:
+Users arrive at the index page which offers clear options for registration and login.
+
+Registration Flow:
+
+A registration form collects name, email, password, and user role.
+Upon submission, the user data (with a hashed password) is stored in the database.
+A successful registration directs users to the login page.
+Login Flow:
+
+Users log in with their email and password.
+The system authenticates the user and then queries the database for their role.
+Based on the role (e.g., admin, recycler, technician, educator, or user), the system redirects the user to their corresponding dashboard.
+Role-Specific Dashboards:
+
+Admin Dashboard:
+Allows management of users, pickup requests, support tickets, promotions, and overall system reports.
+Recycler Dashboard:
+Displays pickup requests, e‑waste item details, and recycling performance stats.
+Technician Dashboard:
+Shows repair/refurbishment tasks and allows status updates.
+User Dashboard:
+Enables users to request pickups, view past requests, track rewards and environmental impact, and access educational resources.
+Educator Dashboard:
+Permits educators to upload and manage educational content, run workshops, and view engagement metrics.
+Business Dashboard:
+Helps business users submit bulk pickup requests, track CSR contributions, and manage company-specific data.
