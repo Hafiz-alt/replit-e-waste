@@ -15,6 +15,11 @@ export const users = pgTable("users", {
   isAdmin: boolean("is_admin").notNull().default(false),
 });
 
+// Create extended schemas that include all fields for forms
+export const insertUserSchema = createInsertSchema(users);
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;
+
 // Define the structure for e-waste items
 export const WasteItemSchema = z.object({
   type: z.string(),
@@ -50,10 +55,6 @@ export const supportTickets = pgTable("support_tickets", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// Create extended schemas that include all fields for forms
-export const insertUserSchema = createInsertSchema(users);
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
 
 export const insertPickupRequestSchema = createInsertSchema(pickupRequests, {
   scheduledDate: z.coerce.date(),
