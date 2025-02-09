@@ -15,14 +15,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { z } from "zod";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function TechnicianDashboard() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [listingDialogOpen, setListingDialogOpen] = useState(false);
   const [selectedRepair, setSelectedRepair] = useState<RepairRequest | null>(null);
 
   const { data: repairRequests } = useQuery<RepairRequest[]>({
     queryKey: ["/api/repair-requests/technician"],
+    enabled: !!user?.id,
   });
 
   const updateRepairStatus = async (id: number, status: string, estimatedCost?: number) => {

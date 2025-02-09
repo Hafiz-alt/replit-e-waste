@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { PickupRequest, SupportTicket, insertRepairRequestSchema, type RepairRequest } from "@shared/schema";
+import { PickupRequest, SupportTicket, insertRepairRequestSchema, type RepairRequest, type User } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -39,6 +39,10 @@ export default function UserDashboard() {
 
   const { data: repairRequests } = useQuery<RepairRequest[]>({
     queryKey: ["/api/repair-requests/user"],
+  });
+
+  const { data: technicians } = useQuery<User[]>({
+    queryKey: ["/api/users/technicians"],
   });
 
   const form = useForm<FormData>({
@@ -95,11 +99,21 @@ export default function UserDashboard() {
         status: "PENDING",
         deviceType: "",
         description: "",
+        technicianId: undefined,
       }
     });
 
     const onSubmitRepair = async (data: z.infer<typeof insertRepairRequestSchema>) => {
       try {
+        if (!data.technicianId) {
+          toast({
+            title: "Error",
+            description: "Please select a technician",
+            variant: "destructive",
+          });
+          return;
+        }
+
         await apiRequest("POST", "/api/repair-requests", {
           ...data,
           userId: user?.id,
@@ -145,6 +159,30 @@ export default function UserDashboard() {
                 <FormLabel>Issue Description</FormLabel>
                 <FormControl>
                   <Textarea {...field} placeholder="Describe the issue with your device" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={repairForm.control}
+            name="technicianId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Select Technician</FormLabel>
+                <FormControl>
+                  <select
+                    {...field}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    onChange={(e) => field.onChange(parseInt(e.target.value))}
+                  >
+                    <option value="">Select a technician</option>
+                    {technicians?.map((technician) => (
+                      <option key={technician.id} value={technician.id}>
+                        {technician.name} - {technician.email}
+                      </option>
+                    ))}
+                  </select>
                 </FormControl>
                 <FormMessage />
               </FormItem>
