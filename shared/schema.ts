@@ -12,6 +12,7 @@ export const users = pgTable("users", {
   role: text("role").$type<UserRole>().notNull(),
   name: text("name").notNull(),
   email: text("email").notNull(),
+  isAdmin: boolean("is_admin").notNull().default(false),
 });
 
 // Define the structure for e-waste items

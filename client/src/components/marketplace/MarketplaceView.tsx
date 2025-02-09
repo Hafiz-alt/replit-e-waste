@@ -12,13 +12,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertMarketplaceListingSchema, MarketplaceListing, ItemCondition } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
-import { Tag, Plus, DollarSign } from "lucide-react";
+import { Tag, Plus, DollarSign, X } from "lucide-react";
 import type { z } from "zod";
 
 type FormData = z.infer<typeof insertMarketplaceListingSchema>;
 
 export default function MarketplaceView() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<MarketplaceListing | null>(null);
   const { toast } = useToast();
 
   const { data: listings } = useQuery<MarketplaceListing[]>({
@@ -153,6 +154,53 @@ export default function MarketplaceView() {
         </Dialog>
       </div>
 
+      {/* View Details Dialog */}
+      <Dialog open={!!selectedListing} onOpenChange={() => setSelectedListing(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex justify-between items-center">
+              {selectedListing?.title}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSelectedListing(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <h4 className="font-medium mb-2">Description</h4>
+              <p className="text-sm text-muted-foreground">
+                {selectedListing?.description}
+              </p>
+            </div>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <Tag className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  {selectedListing?.condition.replace('_', ' ')}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <DollarSign className="h-4 w-4" />
+                <span className="font-semibold">{selectedListing?.price}</span>
+              </div>
+            </div>
+            <Button className="w-full" onClick={() => {
+              toast({
+                title: "Contact initiated",
+                description: "The seller will be notified of your interest.",
+              });
+              setSelectedListing(null);
+            }}>
+              Contact Seller
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {listings?.map((listing) => (
           <Card key={listing.id} className="overflow-hidden">
@@ -180,7 +228,12 @@ export default function MarketplaceView() {
                   <span className="font-semibold">{listing.price}</span>
                 </div>
               </div>
-              <Button className="w-full mt-4">View Details</Button>
+              <Button 
+                className="w-full mt-4"
+                onClick={() => setSelectedListing(listing)}
+              >
+                View Details
+              </Button>
             </CardContent>
           </Card>
         ))}

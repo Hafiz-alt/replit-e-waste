@@ -2,10 +2,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import type { User, PickupRequest, SupportTicket } from "@shared/schema";
-import { DataTable } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    // Redirect non-admin users to home page
+    if (user && !user.isAdmin) {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
+
+  // If user is not admin, don't render anything
+  if (!user?.isAdmin) {
+    return null;
+  }
+
   const { data: users } = useQuery<User[]>({ queryKey: ["/api/users"] });
   const { data: pickupRequests } = useQuery<PickupRequest[]>({ 
     queryKey: ["/api/pickup-requests"] 
