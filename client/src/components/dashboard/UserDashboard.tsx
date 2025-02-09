@@ -53,7 +53,11 @@ export default function UserDashboard() {
       setIsSubmitting(true);
       await apiRequest("POST", "/api/pickup-requests", {
         ...data,
-        scheduledDate: new Date(data.scheduledDate).toISOString()
+        scheduledDate: new Date(data.scheduledDate).toISOString(),
+        items: [{
+          ...data.items[0],
+          estimatedCarbonImpact: 2.5 // Default carbon impact in kg CO2
+        }]
       });
       queryClient.invalidateQueries({ queryKey: ["/api/pickup-requests/user"] });
       toast({
@@ -75,8 +79,8 @@ export default function UserDashboard() {
   };
 
   // Calculate total carbon saved and points
-  const totalCarbonSaved = user?.totalCarbonSaved || 0;
-  const totalPoints = user?.points || 0;
+  const totalCarbonSaved = parseFloat(user?.totalCarbonSaved?.toString() || '0');
+  const totalPoints = parseInt(user?.points?.toString() || '0');
 
   return (
     <div className="space-y-6 p-6 bg-white dark:bg-gray-900 min-h-screen">
@@ -173,8 +177,8 @@ export default function UserDashboard() {
                         <FormItem>
                           <FormLabel>Preferred Date</FormLabel>
                           <FormControl>
-                            <Input 
-                              type="datetime-local" 
+                            <Input
+                              type="datetime-local"
                               {...field}
                               value={value instanceof Date ? value.toISOString().slice(0, 16) : value}
                             />

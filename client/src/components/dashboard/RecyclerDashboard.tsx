@@ -23,8 +23,21 @@ export default function RecyclerDashboard() {
   const updateRequestStatus = async (id: number, status: string) => {
     try {
       await apiRequest("PATCH", `/api/pickup-requests/${id}/status`, { status });
-      queryClient.invalidateQueries({ queryKey: ["/api/pickup-requests"] });
 
+      // Calculate impact when marking as completed
+      if (status === "COMPLETED") {
+        const request = pickupRequests?.find(r => r.id === id);
+        const carbonSaved = request?.items.reduce((total, item) => 
+          total + (item.estimatedCarbonImpact || 0), 0) || 0;
+        const points = Math.floor(carbonSaved * 10); // 10 points per kg of CO2 saved
+
+        await apiRequest("PATCH", `/api/pickup-requests/${id}/impact`, { 
+          carbonSaved,
+          points 
+        });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["/api/pickup-requests"] });
       toast({
         title: "Status Updated",
         description: `Request status updated to ${status}`,
@@ -36,15 +49,6 @@ export default function RecyclerDashboard() {
         description: "Failed to update request status",
         variant: "destructive",
       });
-    }
-  };
-
-  const markNotificationAsRead = async (id: number) => {
-    try {
-      await apiRequest("PATCH", `/api/notifications/${id}/read`);
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-    } catch (error) {
-      console.error("Failed to mark notification as read:", error);
     }
   };
 
@@ -134,7 +138,9 @@ export default function RecyclerDashboard() {
                       <TableCell>
                         {new Date(request.scheduledDate).toLocaleDateString()}
                       </TableCell>
-                      <TableCell>{request.carbonSaved} kg CO₂</TableCell>
+                      <TableCell>
+                        {parseFloat(request.carbonSaved?.toString() || '0').toFixed(2)} kg CO₂
+                      </TableCell>
                       <TableCell>
                         {request.status === "PENDING" && (
                           <Button
