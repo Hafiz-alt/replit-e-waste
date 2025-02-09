@@ -45,6 +45,10 @@ export default function UserDashboard() {
     queryKey: ["/api/users/technicians"],
   });
 
+  const { data: repairRequestsData } = useQuery<RepairRequest[]>({
+    queryKey: ["/api/repair-requests/user"],
+  });
+
   const form = useForm<FormData>({
     resolver: zodResolver(insertPickupRequestSchema),
     defaultValues: {
@@ -104,9 +108,11 @@ export default function UserDashboard() {
 
     const onSubmitRepair = async (data: z.infer<typeof insertRepairRequestSchema>) => {
       try {
+        console.log('Submitting repair request:', data);
         await apiRequest("POST", "/api/repair-requests", {
           ...data,
           userId: user?.id,
+          status: "PENDING",
         });
         queryClient.invalidateQueries({ queryKey: ["/api/repair-requests/user"] });
         toast({
@@ -119,7 +125,7 @@ export default function UserDashboard() {
         console.error("Failed to create repair request:", error);
         toast({
           title: "Error",
-          description: "Failed to submit repair request",
+          description: "Failed to submit repair request. Please try again.",
           variant: "destructive",
         });
       }
