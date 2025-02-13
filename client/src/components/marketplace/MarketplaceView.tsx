@@ -56,19 +56,20 @@ export default function MarketplaceView() {
       const listingData = {
         ...data,
         sellerId: user.id,
-        images: data.images?.length ? data.images : [DEFAULT_IMAGE],
+        images: [DEFAULT_IMAGE],
         status: "AVAILABLE",
       };
 
-      console.log("Submitting listing data:", listingData);
-
       await apiRequest("POST", "/api/marketplace/listings", listingData);
 
-      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings"] });
+      // Force refetch listings
+      await queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings"] });
+
       toast({
         title: "Success",
         description: "Item listed successfully in the marketplace",
       });
+
       setIsDialogOpen(false);
       form.reset();
     } catch (error) {
@@ -208,64 +209,6 @@ export default function MarketplaceView() {
         </Tabs>
       </div>
 
-      {/* View Details Dialog */}
-      <Dialog open={!!selectedListing} onOpenChange={() => setSelectedListing(null)}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle className="flex justify-between items-center">
-              {selectedListing?.title}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSelectedListing(null)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {selectedListing?.images[0] && (
-              <img
-                src={selectedListing.images[0]}
-                alt={selectedListing.title}
-                className="w-full h-64 object-cover rounded-lg"
-              />
-            )}
-            <div>
-              <h4 className="font-medium mb-2">Description</h4>
-              <p className="text-sm text-muted-foreground">
-                {selectedListing?.description}
-              </p>
-            </div>
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                {selectedListing?.isRefurbished ? (
-                  <Sparkles className="h-4 w-4 text-yellow-500" />
-                ) : (
-                  <Tag className="h-4 w-4" />
-                )}
-                <span className="text-sm font-medium">
-                  {selectedListing?.condition.replace('_', ' ')}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <DollarSign className="h-4 w-4" />
-                <span className="font-semibold">${selectedListing?.price}</span>
-              </div>
-            </div>
-            <Button className="w-full" onClick={() => {
-              toast({
-                title: "Contact initiated",
-                description: "The seller will be notified of your interest.",
-              });
-              setSelectedListing(null);
-            }}>
-              Contact Seller
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
@@ -323,6 +266,53 @@ export default function MarketplaceView() {
           ))}
         </div>
       )}
+
+      {/* View Details Dialog */}
+      <Dialog open={!!selectedListing} onOpenChange={() => setSelectedListing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selectedListing?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <img
+              src={selectedListing?.images[0] || DEFAULT_IMAGE}
+              alt={selectedListing?.title}
+              className="w-full h-64 object-cover rounded-lg"
+            />
+            <div>
+              <h4 className="font-medium mb-2">Description</h4>
+              <p className="text-sm text-muted-foreground">
+                {selectedListing?.description}
+              </p>
+            </div>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                {selectedListing?.isRefurbished ? (
+                  <Sparkles className="h-4 w-4 text-yellow-500" />
+                ) : (
+                  <Tag className="h-4 w-4" />
+                )}
+                <span className="text-sm font-medium">
+                  {selectedListing?.condition.replace('_', ' ')}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <DollarSign className="h-4 w-4" />
+                <span className="font-semibold">${selectedListing?.price}</span>
+              </div>
+            </div>
+            <Button className="w-full" onClick={() => {
+              toast({
+                title: "Contact initiated",
+                description: "The seller will be notified of your interest.",
+              });
+              setSelectedListing(null);
+            }}>
+              Contact Seller
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
