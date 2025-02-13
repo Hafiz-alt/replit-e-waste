@@ -9,20 +9,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertMarketplaceListingSchema, MarketplaceListing, ItemCondition } from "@shared/schema";
+import { insertMarketplaceListingSchema, MarketplaceListing } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
-import { Tag, Plus, DollarSign, X } from "lucide-react";
+import { Tag, Plus, DollarSign, X, Sparkles, Filter } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { z } from "zod";
 
 type FormData = z.infer<typeof insertMarketplaceListingSchema>;
 
+const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?q=80&w=301&auto=format&fit=crop';
+
 export default function MarketplaceView() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<MarketplaceListing | null>(null);
+  const [filter, setFilter] = useState<'ALL' | 'REFURBISHED' | 'USER_LISTED'>('ALL');
   const { toast } = useToast();
 
-  const { data: listings } = useQuery<MarketplaceListing[]>({
+  const { data: listings, isLoading } = useQuery<MarketplaceListing[]>({
     queryKey: ["/api/marketplace"],
   });
 
@@ -30,17 +34,23 @@ export default function MarketplaceView() {
     resolver: zodResolver(insertMarketplaceListingSchema),
     defaultValues: {
       status: "AVAILABLE",
-      images: [],
+      images: [DEFAULT_IMAGE],
+      isRefurbished: false,
+      condition: "GOOD",
     },
   });
 
   const onSubmit = async (data: FormData) => {
     try {
-      await apiRequest("POST", "/api/marketplace", data);
+      await apiRequest("POST", "/api/marketplace", {
+        ...data,
+        images: data.images.length ? data.images : [DEFAULT_IMAGE],
+      });
+
       queryClient.invalidateQueries({ queryKey: ["/api/marketplace"] });
       toast({
         title: "Success",
-        description: "Item listed successfully",
+        description: "Item listed successfully in the marketplace",
       });
       setIsDialogOpen(false);
       form.reset();
@@ -54,10 +64,21 @@ export default function MarketplaceView() {
     }
   };
 
+  const filteredListings = listings?.filter(listing => {
+    if (filter === 'ALL') return true;
+    if (filter === 'REFURBISHED') return listing.isRefurbished;
+    return !listing.isRefurbished;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold">Marketplace</h2>
+        <div>
+          <h2 className="text-3xl font-bold mb-2">Marketplace</h2>
+          <p className="text-muted-foreground">
+            Browse and list e-waste items and refurbished electronics
+          </p>
+        </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -65,11 +86,11 @@ export default function MarketplaceView() {
               List Item
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
               <DialogTitle>List an Item</DialogTitle>
               <DialogDescription>
-                List your refurbished e-waste items for sale.
+                List your electronics for sale in our sustainable marketplace.
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -94,69 +115,85 @@ export default function MarketplaceView() {
                     <FormItem>
                       <FormLabel>Description</FormLabel>
                       <FormControl>
-                        <Textarea {...field} placeholder="Describe your item" />
+                        <Textarea {...field} placeholder="Describe your item's condition and specifications" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="price"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Price</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          step="0.01" 
-                          {...field}
-                          onChange={e => field.onChange(parseFloat(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="condition"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Condition</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        defaultValue={field.value}
-                      >
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="price"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Price ($)</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select condition" />
-                          </SelectTrigger>
+                          <Input 
+                            type="number" 
+                            step="0.01" 
+                            {...field}
+                            onChange={e => field.onChange(parseFloat(e.target.value))}
+                          />
                         </FormControl>
-                        <SelectContent>
-                          {(['NEW', 'LIKE_NEW', 'GOOD', 'FAIR', 'POOR'] as const).map((condition) => (
-                            <SelectItem key={condition} value={condition}>
-                              {condition.replace('_', ' ')}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full">
-                  List Item
-                </Button>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="condition"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Condition</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select condition" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {(['LIKE_NEW', 'GOOD', 'FAIR'] as const).map((condition) => (
+                              <SelectItem key={condition} value={condition}>
+                                {condition.replace('_', ' ')}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <Button type="submit" className="w-full">List Item</Button>
               </form>
             </Form>
           </DialogContent>
         </Dialog>
       </div>
 
+      <div className="flex justify-between items-center">
+        <Tabs defaultValue="ALL" className="w-full" onValueChange={(value) => setFilter(value as any)}>
+          <TabsList>
+            <TabsTrigger value="ALL">All Items</TabsTrigger>
+            <TabsTrigger value="REFURBISHED">
+              <Sparkles className="h-4 w-4 mr-2" />
+              Refurbished
+            </TabsTrigger>
+            <TabsTrigger value="USER_LISTED">
+              <Tag className="h-4 w-4 mr-2" />
+              User Listed
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
       {/* View Details Dialog */}
       <Dialog open={!!selectedListing} onOpenChange={() => setSelectedListing(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle className="flex justify-between items-center">
               {selectedListing?.title}
@@ -170,6 +207,13 @@ export default function MarketplaceView() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {selectedListing?.images[0] && (
+              <img
+                src={selectedListing.images[0]}
+                alt={selectedListing.title}
+                className="w-full h-64 object-cover rounded-lg"
+              />
+            )}
             <div>
               <h4 className="font-medium mb-2">Description</h4>
               <p className="text-sm text-muted-foreground">
@@ -178,14 +222,18 @@ export default function MarketplaceView() {
             </div>
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <Tag className="h-4 w-4" />
+                {selectedListing?.isRefurbished ? (
+                  <Sparkles className="h-4 w-4 text-yellow-500" />
+                ) : (
+                  <Tag className="h-4 w-4" />
+                )}
                 <span className="text-sm font-medium">
                   {selectedListing?.condition.replace('_', ' ')}
                 </span>
               </div>
               <div className="flex items-center gap-1">
                 <DollarSign className="h-4 w-4" />
-                <span className="font-semibold">{selectedListing?.price}</span>
+                <span className="font-semibold">${selectedListing?.price}</span>
               </div>
             </div>
             <Button className="w-full" onClick={() => {
@@ -201,43 +249,63 @@ export default function MarketplaceView() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {listings?.map((listing) => (
-          <Card key={listing.id} className="overflow-hidden">
-            {listing.images[0] && (
-              <img
-                src={listing.images[0]}
-                alt={listing.title}
-                className="w-full h-48 object-cover"
-              />
-            )}
-            <CardContent className="p-4">
-              <h3 className="text-lg font-semibold">{listing.title}</h3>
-              <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                {listing.description}
-              </p>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Tag className="h-4 w-4" />
-                  <span className="text-sm font-medium">
-                    {listing.condition.replace('_', ' ')}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <DollarSign className="h-4 w-4" />
-                  <span className="font-semibold">{listing.price}</span>
-                </div>
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <div className="h-48 bg-muted"></div>
+              <CardContent className="p-4">
+                <div className="h-6 bg-muted rounded mb-2"></div>
+                <div className="h-4 bg-muted rounded w-2/3"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {filteredListings?.map((listing) => (
+            <Card key={listing.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-200">
+              <div className="relative">
+                <img
+                  src={listing.images[0] || DEFAULT_IMAGE}
+                  alt={listing.title}
+                  className="w-full h-48 object-cover"
+                />
+                {listing.isRefurbished && (
+                  <div className="absolute top-2 right-2 bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center">
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    Refurbished
+                  </div>
+                )}
               </div>
-              <Button 
-                className="w-full mt-4"
-                onClick={() => setSelectedListing(listing)}
-              >
-                View Details
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              <CardContent className="p-4">
+                <h3 className="text-lg font-semibold mb-1">{listing.title}</h3>
+                <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                  {listing.description}
+                </p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    <span className="text-sm font-medium">
+                      {listing.condition.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <DollarSign className="h-4 w-4" />
+                    <span className="font-semibold">${listing.price}</span>
+                  </div>
+                </div>
+                <Button 
+                  className="w-full mt-4"
+                  onClick={() => setSelectedListing(listing)}
+                >
+                  View Details
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
