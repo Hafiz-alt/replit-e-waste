@@ -1,7 +1,7 @@
-CREATE DATABASE ewaste_management;
+createdb ewaste_management
 ```
 
-2. Execute the SQL schema:
+3. Execute the SQL schema:
 ```bash
 psql -d ewaste_management -f database_schema.sql
 ```

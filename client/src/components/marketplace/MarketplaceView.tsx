@@ -12,7 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertMarketplaceListingSchema, MarketplaceListing } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
-import { Tag, Plus, DollarSign, X, Sparkles } from "lucide-react";
+import { Tag, Plus, DollarSign, Sparkles } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { z } from "zod";
 import { useAuth } from "@/hooks/use-auth";
@@ -35,10 +35,13 @@ export default function MarketplaceView() {
   const form = useForm<FormData>({
     resolver: zodResolver(insertMarketplaceListingSchema),
     defaultValues: {
+      title: "",
+      description: "",
+      price: 0,
+      condition: "GOOD",
       status: "AVAILABLE",
       images: [DEFAULT_IMAGE],
       isRefurbished: false,
-      condition: "GOOD",
     },
   });
 
@@ -63,7 +66,7 @@ export default function MarketplaceView() {
       await apiRequest("POST", "/api/marketplace/listings", listingData);
 
       // Force refetch listings
-      await queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings"] });
 
       toast({
         title: "Success",
@@ -86,10 +89,10 @@ export default function MarketplaceView() {
     if (filter === 'ALL') return true;
     if (filter === 'REFURBISHED') return listing.isRefurbished;
     return !listing.isRefurbished;
-  });
+  }) || [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold mb-2">Marketplace</h2>
@@ -223,7 +226,7 @@ export default function MarketplaceView() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {filteredListings?.map((listing) => (
+          {filteredListings.map((listing) => (
             <Card key={listing.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-200">
               <div className="relative">
                 <img
@@ -269,7 +272,7 @@ export default function MarketplaceView() {
 
       {/* View Details Dialog */}
       <Dialog open={!!selectedListing} onOpenChange={() => setSelectedListing(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>{selectedListing?.title}</DialogTitle>
           </DialogHeader>
