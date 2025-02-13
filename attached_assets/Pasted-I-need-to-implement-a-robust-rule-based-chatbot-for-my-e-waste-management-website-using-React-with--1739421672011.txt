@@ -1,0 +1,29 @@
+I need to implement a robust rule-based chatbot for my e‑waste management website using React (with TypeScript, if possible). The chatbot should function as follows:
+
+User Input Handling:
+
+Accept user input (text) through an input field.
+Display both user messages and chatbot responses in a scrollable chat log area.
+Keyword Analysis and Response:
+
+Analyze the user input to detect keywords related to various categories such as repair, pickup, help, and more.
+Use a comprehensive dictionary of keywords and their synonyms for each category. For example:
+Repair: Keywords like "repair", "fix", "broken", "malfunction", "damage", "needs fixing", etc.
+Pickup: Keywords like "pickup", "pick up", "collect", "schedule", "request pickup", etc.
+Help/Support: Keywords like "help", "support", "assist", "trouble", etc.
+Return a predefined response for each detected category. For example:
+Repair response: "It looks like you need a repair service. Could you please provide more details about the issue with your device?"
+Pickup response: "You seem to be requesting a pickup. Please provide your address and preferred pickup time."
+Help response: "How can I assist you today? Please describe your issue in detail."
+If no keywords match, return a fallback response like: "I'm sorry, I didn't understand that. Could you please rephrase your question or provide more details?"
+Component Requirements:
+
+Implement the chatbot as a standalone React component named ChatbotComponent.
+Include a helper function (e.g., getChatbotResponse) that processes user input and returns the appropriate response based on keyword matching.
+The component should update the chat log dynamically upon submission.
+Provide clear inline comments explaining the code and how to extend the keyword dictionary.
+Integration:
+
+The generated code should be easy to integrate into an existing user dashboard.
+Ensure the code is modular and written in TypeScript (or JavaScript if needed).
+Please generate the complete code for the ChatbotComponent and the helper function that processes user input, along with comments on how to extend the keyword dictionary for broader coverage

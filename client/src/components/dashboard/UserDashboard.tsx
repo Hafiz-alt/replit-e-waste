@@ -104,7 +104,8 @@ export default function UserDashboard() {
         status: "PENDING",
         deviceType: "",
         description: "",
-        userId: user?.id, 
+        customerAddress: "",
+        userId: user?.id,
       }
     });
 
@@ -160,6 +161,19 @@ export default function UserDashboard() {
                 <FormLabel>Issue Description</FormLabel>
                 <FormControl>
                   <Textarea {...field} placeholder="Describe the issue with your device" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={repairForm.control}
+            name="customerAddress"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Pickup Address</FormLabel>
+                <FormControl>
+                  <Textarea {...field} placeholder="Enter your complete address for device pickup" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -387,7 +401,8 @@ export default function UserDashboard() {
                     <TableHead>Device</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Estimated Cost</TableHead>
+                    <TableHead>Cost Estimate</TableHead>
+                    <TableHead>Pickup Details</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -410,6 +425,18 @@ export default function UserDashboard() {
                           'Pending'}
                       </TableCell>
                       <TableCell>
+                        {request.pickupDate ? (
+                          <div className="space-y-1">
+                            <p>Date: {new Date(request.pickupDate).toLocaleDateString()}</p>
+                            {request.pickupNotes && (
+                              <p className="text-sm text-muted-foreground">{request.pickupNotes}</p>
+                            )}
+                          </div>
+                        ) : (
+                          'To be scheduled'
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <div className="flex gap-2">
                           {request.estimatedCost && request.status === "IN_PROGRESS" && (
                             <Button
@@ -420,29 +447,19 @@ export default function UserDashboard() {
                                   queryClient.invalidateQueries({ queryKey: ["/api/repair-requests/user"] });
                                   toast({
                                     title: "Success",
-                                    description: "Repair estimate confirmed. The technician will contact you for pickup.",
+                                    description: "Cost estimate confirmed. Technician will proceed with pickup as scheduled.",
                                   });
                                 } catch (error) {
                                   toast({
                                     title: "Error",
-                                    description: "Failed to confirm repair estimate",
+                                    description: "Failed to confirm cost estimate",
                                     variant: "destructive",
                                   });
                                 }
                               }}
                             >
-                              Confirm Estimate
+                              Accept Cost & Pickup
                             </Button>
-                          )}
-                          {request.status === "ESTIMATE_CONFIRMED" && (
-                            <Badge variant="secondary">
-                              Awaiting Pickup
-                            </Badge>
-                          )}
-                          {request.pickupDate && (
-                            <Badge variant="outline">
-                              Pickup: {new Date(request.pickupDate).toLocaleDateString()}
-                            </Badge>
                           )}
                         </div>
                       </TableCell>

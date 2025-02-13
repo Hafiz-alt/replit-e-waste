@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { WrenchIcon, CheckCircle2Icon, ClockIcon, StoreIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
@@ -22,7 +22,7 @@ export default function TechnicianDashboard() {
   const { user } = useAuth();
   const [listingDialogOpen, setListingDialogOpen] = useState(false);
   const [selectedRepair, setSelectedRepair] = useState<RepairRequest | null>(null);
-  const [pickupDetailsOpen, setPickupDetailsOpen] = useState(false);
+  const [estimateDialogOpen, setEstimateDialogOpen] = useState(false);
 
   const { data: availableRepairRequests } = useQuery<RepairRequest[]>({
     queryKey: ["/api/repair-requests/available"],
@@ -73,34 +73,66 @@ export default function TechnicianDashboard() {
     }
   };
 
-  const acceptRepairRequest = async (repairId: number) => {
-    setSelectedRepair(availableRepairRequests?.find(r => r.id === repairId) || null);
-    setPickupDetailsOpen(true);
-  };
+  const estimateForm = useForm({
+    defaultValues: {
+      estimatedCost: '',
+      pickupDate: new Date().toISOString().split('T')[0],
+      pickupNotes: ''
+    }
+  });
 
-  const submitPickupDetails = async (data: any) => {
+  const submitEstimate = async (data: any) => {
     try {
       if (!selectedRepair) return;
 
-      await apiRequest("PATCH", `/api/repair-requests/${selectedRepair.id}/accept`, {
-        technicianId: user?.id,
-        status: "ACCEPTED",
+      await apiRequest("PATCH", `/api/repair-requests/${selectedRepair.id}/status`, {
+        status: "IN_PROGRESS",
+        estimatedCost: parseFloat(data.estimatedCost),
         pickupDate: data.pickupDate,
-        pickupAddress: data.pickupAddress,
-        technicianPhone: data.technicianPhone,
-        technicianEmail: data.technicianEmail,
         pickupNotes: data.pickupNotes
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/repair-requests/technician"] });
+
+      toast({
+        title: "Success",
+        description: "Cost estimate and pickup details sent to customer",
+      });
+
+      setEstimateDialogOpen(false);
+      estimateForm.reset();
+    } catch (error) {
+      console.error("Failed to submit estimate:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit estimate",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const acceptRepairRequest = async (repairId: number) => {
+    try {
+      if (!user?.id) return;
+
+      await apiRequest("PATCH", `/api/repair-requests/${repairId}/accept`, {
+        technicianId: user.id,
+        status: "ACCEPTED"
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/repair-requests/available"] });
       queryClient.invalidateQueries({ queryKey: ["/api/repair-requests/technician"] });
 
+      const request = myRepairRequests?.find(r => r.id === repairId);
+      if (request) {
+        setSelectedRepair(request);
+        setEstimateDialogOpen(true);
+      }
+
       toast({
         title: "Success",
-        description: "Repair request accepted and contact details shared",
+        description: "Repair request accepted",
       });
-
-      setPickupDetailsOpen(false);
     } catch (error) {
       console.error("Failed to accept repair request:", error);
       toast({
@@ -196,6 +228,7 @@ export default function TechnicianDashboard() {
               <TableRow>
                 <TableHead>Device</TableHead>
                 <TableHead>Description</TableHead>
+                <TableHead>Customer Address</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -205,6 +238,7 @@ export default function TechnicianDashboard() {
                 <TableRow key={request.id}>
                   <TableCell>{request.deviceType}</TableCell>
                   <TableCell>{request.description}</TableCell>
+                  <TableCell>{request.customerAddress}</TableCell>
                   <TableCell>
                     <Badge variant="outline">
                       {request.status}
@@ -236,6 +270,7 @@ export default function TechnicianDashboard() {
                 <TableHead>Device</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Cost</TableHead>
                 <TableHead>Pickup Date</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -254,7 +289,14 @@ export default function TechnicianDashboard() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {request.pickupDate ? new Date(request.pickupDate).toLocaleDateString() : 'Not scheduled'}
+                    {request.estimatedCost ? 
+                      `$${parseFloat(request.estimatedCost).toFixed(2)}` : 
+                      'Not set'}
+                  </TableCell>
+                  <TableCell>
+                    {request.pickupDate ? 
+                      new Date(request.pickupDate).toLocaleDateString() : 
+                      'Not scheduled'}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
@@ -262,13 +304,11 @@ export default function TechnicianDashboard() {
                         <Button
                           size="sm"
                           onClick={() => {
-                            const cost = window.prompt("Enter estimated repair cost:");
-                            if (cost && !isNaN(parseFloat(cost))) {
-                              updateRepairStatus(request.id, "IN_PROGRESS", parseFloat(cost));
-                            }
+                            setSelectedRepair(request);
+                            setEstimateDialogOpen(true);
                           }}
                         >
-                          Start Repair
+                          Provide Estimate
                         </Button>
                       )}
                       {request.status === "IN_PROGRESS" && (
@@ -276,7 +316,7 @@ export default function TechnicianDashboard() {
                           size="sm"
                           onClick={() => updateRepairStatus(request.id, "COMPLETED")}
                         >
-                          Complete
+                          Mark Complete
                         </Button>
                       )}
                       {request.status === "COMPLETED" && (
@@ -299,87 +339,6 @@ export default function TechnicianDashboard() {
           </Table>
         </CardContent>
       </Card>
-
-      <Dialog open={pickupDetailsOpen} onOpenChange={setPickupDetailsOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Schedule Pickup & Share Contact Details</DialogTitle>
-            <DialogDescription>
-              Set pickup details and provide your contact information for the customer
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...pickupForm}>
-            <form onSubmit={pickupForm.handleSubmit(submitPickupDetails)} className="space-y-4">
-              <FormField
-                control={pickupForm.control}
-                name="pickupDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Pickup Date</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={pickupForm.control}
-                name="pickupAddress"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Pickup Address</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Enter pickup address" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={pickupForm.control}
-                name="technicianPhone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Your Contact Number</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Enter your phone number" type="tel" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={pickupForm.control}
-                name="technicianEmail"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Your Email</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Enter your email" type="email" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={pickupForm.control}
-                name="pickupNotes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Additional Notes</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} placeholder="Any additional instructions for pickup" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit">Confirm & Share Details</Button>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={listingDialogOpen} onOpenChange={setListingDialogOpen}>
         <DialogContent>
@@ -451,6 +410,61 @@ export default function TechnicianDashboard() {
                 )}
               />
               <Button type="submit">Create Listing</Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={estimateDialogOpen} onOpenChange={setEstimateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Provide Repair Estimate</DialogTitle>
+            <DialogDescription>
+              Set the repair cost estimate and schedule pickup details
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...estimateForm}>
+            <form onSubmit={estimateForm.handleSubmit(submitEstimate)} className="space-y-4">
+              <FormField
+                control={estimateForm.control}
+                name="estimatedCost"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Estimated Cost ($)</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="number" step="0.01" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={estimateForm.control}
+                name="pickupDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Proposed Pickup Date</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="date" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={estimateForm.control}
+                name="pickupNotes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pickup Notes</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} placeholder="Any special instructions for pickup" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit">Submit Estimate & Schedule Pickup</Button>
             </form>
           </Form>
         </DialogContent>
