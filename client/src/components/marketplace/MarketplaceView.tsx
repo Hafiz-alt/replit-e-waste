@@ -12,9 +12,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertMarketplaceListingSchema, MarketplaceListing } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
-import { Tag, Plus, DollarSign, X, Sparkles, Filter } from "lucide-react";
+import { Tag, Plus, DollarSign, X, Sparkles } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { z } from "zod";
+import { useAuth } from "@/hooks/use-auth";
 
 type FormData = z.infer<typeof insertMarketplaceListingSchema>;
 
@@ -25,9 +26,10 @@ export default function MarketplaceView() {
   const [selectedListing, setSelectedListing] = useState<MarketplaceListing | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'REFURBISHED' | 'USER_LISTED'>('ALL');
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const { data: listings, isLoading } = useQuery<MarketplaceListing[]>({
-    queryKey: ["/api/marketplace"],
+    queryKey: ["/api/marketplace/listings"],
   });
 
   const form = useForm<FormData>({
@@ -41,13 +43,28 @@ export default function MarketplaceView() {
   });
 
   const onSubmit = async (data: FormData) => {
-    try {
-      await apiRequest("POST", "/api/marketplace", {
-        ...data,
-        images: data.images.length ? data.images : [DEFAULT_IMAGE],
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to list items",
+        variant: "destructive",
       });
+      return;
+    }
 
-      queryClient.invalidateQueries({ queryKey: ["/api/marketplace"] });
+    try {
+      const listingData = {
+        ...data,
+        sellerId: user.id,
+        images: data.images?.length ? data.images : [DEFAULT_IMAGE],
+        status: "AVAILABLE",
+      };
+
+      console.log("Submitting listing data:", listingData);
+
+      await apiRequest("POST", "/api/marketplace/listings", listingData);
+
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings"] });
       toast({
         title: "Success",
         description: "Item listed successfully in the marketplace",
@@ -129,9 +146,9 @@ export default function MarketplaceView() {
                       <FormItem>
                         <FormLabel>Price ($)</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="number" 
-                            step="0.01" 
+                          <Input
+                            type="number"
+                            step="0.01"
                             {...field}
                             onChange={e => field.onChange(parseFloat(e.target.value))}
                           />
@@ -146,8 +163,8 @@ export default function MarketplaceView() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Condition</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
+                        <Select
+                          onValueChange={field.onChange}
                           defaultValue={field.value}
                         >
                           <FormControl>
@@ -295,7 +312,7 @@ export default function MarketplaceView() {
                     <span className="font-semibold">${listing.price}</span>
                   </div>
                 </div>
-                <Button 
+                <Button
                   className="w-full mt-4"
                   onClick={() => setSelectedListing(listing)}
                 >
