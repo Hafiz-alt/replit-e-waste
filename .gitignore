@@ -39,6 +39,9 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 
+# Keep environment example file
+!.env.example
+
 # Replit specific
 .replit
 .breakpoints

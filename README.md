@@ -1,17 +1,5 @@
-DATABASE_URL=postgresql://[user]:[password]@[host]:[port]/[dbname]
-PGUSER=your_postgres_user
-PGPASSWORD=your_postgres_password
-PGDATABASE=your_database_name
-PGHOST=localhost
-PGPORT=5432
-```
-
-## Local Development Setup
-
-1. Clone the repository:
-```bash
-git clone [your-repository-url]
-cd [repository-name]
+git clone https://github.com/Hafiz-alt/replit-e-waste-13-feb.git
+cd replit-e-waste-13-feb
 ```
 
 2. Install dependencies:
@@ -20,29 +8,38 @@ npm install
 ```
 
 3. Set up the database:
-   - Create a PostgreSQL database
-   - Update the `.env` file with your database credentials
-   - Run migrations:
+
+a. Create a PostgreSQL database:
+```bash
+createdb ewaste_management
+```
+
+b. Execute the database schema:
+```bash
+psql -d ewaste_management -f database_schema.sql
+```
+
+4. Create a `.env` file in the root directory:
+```env
+DATABASE_URL=postgresql://[user]:[password]@localhost:5432/ewaste_management
+PGUSER=your_postgres_user
+PGPASSWORD=your_postgres_password
+PGDATABASE=ewaste_management
+PGHOST=localhost
+PGPORT=5432
+```
+
+5. Push the database schema:
 ```bash
 npm run db:push
 ```
 
-4. Start the development server:
+6. Start the development server:
 ```bash
 npm run dev
 ```
 
 The application will be available at `http://localhost:5000`
-
-## Database Schema
-
-The application uses Drizzle ORM with the following main tables:
-- users
-- pickup_requests
-- repair_requests
-- marketplace_listings
-- notifications
-- achievements
 
 ## Project Structure
 

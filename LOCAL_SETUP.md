@@ -1,7 +1,7 @@
 createdb ewaste_management
 ```
 
-3. Execute the SQL schema:
+4. Execute the SQL schema:
 ```bash
 psql -d ewaste_management -f database_schema.sql
 ```
@@ -15,7 +15,11 @@ psql -d ewaste_management -f database_schema.sql
    - Use the "URI" format that starts with `postgresql://`
 
 ## Project Setup
-1. Clone the repository to your local machine
+1. Clone the repository to your local machine:
+```bash
+git clone https://github.com/Hafiz-alt/replit-e-waste-13-feb.git
+cd replit-e-waste-13-feb
+```
 
 2. Install dependencies:
 ```bash
@@ -31,14 +35,11 @@ This will install all required packages including:
 - Authentication-related packages
 - Type definitions and development tools
 
-3. Create a `.env` file in the project root with the following variables:
-```env
-# For local PostgreSQL:
-DATABASE_URL=postgresql://your_username:your_password@localhost:5432/ewaste_management
-
-# For Supabase:
-DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
+3. Create a `.env` file in the project root by copying `.env.example`:
+```bash
+cp .env.example .env
 ```
+Then update the values with your database credentials.
 
 4. Run database migrations:
 ```bash
