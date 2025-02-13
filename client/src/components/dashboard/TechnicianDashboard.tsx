@@ -16,6 +16,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { z } from "zod";
 import { useAuth } from "@/hooks/use-auth";
+import { useWebSocket } from '@/hooks/use-websocket';
 
 export default function TechnicianDashboard() {
   const { toast } = useToast();
@@ -23,6 +24,7 @@ export default function TechnicianDashboard() {
   const [listingDialogOpen, setListingDialogOpen] = useState(false);
   const [selectedRepair, setSelectedRepair] = useState<RepairRequest | null>(null);
   const [estimateDialogOpen, setEstimateDialogOpen] = useState(false);
+  useWebSocket();
 
   const { data: availableRepairRequests } = useQuery<RepairRequest[]>({
     queryKey: ["/api/repair-requests/available"],

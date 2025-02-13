@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MarketplaceView from "@/components/marketplace/MarketplaceView";
 import type { z } from "zod";
 import { useAuth } from "@/hooks/use-auth";
+import { useWebSocket } from '@/hooks/use-websocket';
 
 type FormData = z.infer<typeof insertPickupRequestSchema>;
 
@@ -28,6 +29,7 @@ export default function UserDashboard() {
   const [repairDialogOpen, setRepairDialogOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  useWebSocket();
 
   const { data: pickupRequests, isLoading: isLoadingRequests } = useQuery<PickupRequest[]>({
     queryKey: ["/api/pickup-requests/user"],

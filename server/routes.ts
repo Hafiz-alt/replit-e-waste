@@ -3,9 +3,39 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { insertPickupRequestSchema, insertEducationalContentSchema, insertSupportTicketSchema, insertRepairRequestSchema } from "@shared/schema";
+import { WebSocketServer, WebSocket } from 'ws';
+
+// Keep track of connected clients
+const clients = new Map<number, WebSocket>();
 
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
+  const httpServer = createServer(app);
+
+  // Set up WebSocket server
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+
+  wss.on('connection', (ws, req) => {
+    if (!req.url) return;
+
+    // Get user ID from query parameter
+    const userId = parseInt(new URL(req.url, 'http://localhost').searchParams.get('userId') || '0');
+    if (userId) {
+      clients.set(userId, ws);
+
+      ws.on('close', () => {
+        clients.delete(userId);
+      });
+    }
+  });
+
+  // Helper function to send updates to specific users
+  const sendUpdate = (userId: number, type: string, data: any) => {
+    const client = clients.get(userId);
+    if (client?.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({ type, data }));
+    }
+  };
 
   // Repair Request Routes
   app.post("/api/repair-requests", async (req, res) => {
@@ -16,6 +46,17 @@ export function registerRoutes(app: Express): Server {
     try {
       const request = await storage.createRepairRequest(parsed.data);
       res.status(201).json(request);
+
+      // Notify relevant technicians about new request
+      const technicianClients = Array.from(clients.entries())
+        .filter(([_, ws]) => ws.readyState === WebSocket.OPEN);
+
+      technicianClients.forEach(([techId, ws]) => {
+        ws.send(JSON.stringify({
+          type: 'NEW_REPAIR_REQUEST',
+          data: request
+        }));
+      });
     } catch (error) {
       console.error("Failed to create repair request:", error);
       res.status(500).json({ message: "Failed to create repair request" });
@@ -91,6 +132,12 @@ export function registerRoutes(app: Express): Server {
         estimatedCost
       );
 
+      // Send real-time update to both user and technician
+      sendUpdate(request.userId, 'REPAIR_STATUS_UPDATE', request);
+      if (request.technicianId) {
+        sendUpdate(request.technicianId, 'REPAIR_STATUS_UPDATE', request);
+      }
+
       // Create notification for cost estimate
       if (estimatedCost) {
         await storage.createNotification({
@@ -109,7 +156,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // New endpoint for users to confirm repair estimate
   app.post("/api/repair-requests/:id/confirm", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
@@ -121,6 +167,7 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ message: "Failed to confirm repair estimate" });
     }
   });
+
 
   // Pickup Request Routes
   app.post("/api/pickup-requests", async (req, res) => {
@@ -185,6 +232,5 @@ export function registerRoutes(app: Express): Server {
     res.sendStatus(200);
   });
 
-  const httpServer = createServer(app);
   return httpServer;
 }
