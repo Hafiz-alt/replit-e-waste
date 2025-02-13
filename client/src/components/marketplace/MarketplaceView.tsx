@@ -30,6 +30,8 @@ export default function MarketplaceView() {
 
   const { data: listings, isLoading } = useQuery<MarketplaceListing[]>({
     queryKey: ["/api/marketplace/listings"],
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   const form = useForm<FormData>({
@@ -66,7 +68,7 @@ export default function MarketplaceView() {
       await apiRequest("POST", "/api/marketplace/listings", listingData);
 
       // Force refetch listings
-      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings"] });
 
       toast({
         title: "Success",
