@@ -56,6 +56,10 @@ export interface IStorage {
   getTechnicianRepairRequests(technicianId: number): Promise<RepairRequest[]>;
   acceptRepairRequest(id: number, technicianId: number, pickupDate: Date, pickupAddress: string, technicianPhone: string, technicianEmail: string, pickupNotes?: string): Promise<void>;
 
+  // Added methods
+  updateRepairStatus(id: number, status: string, estimatedCost?: number): Promise<RepairRequest>;
+  confirmRepairEstimate(id: number): Promise<RepairRequest>;
+
   sessionStore: session.Store;
 }
 
@@ -438,6 +442,58 @@ export class DatabaseStorage implements IStorage {
         createdAt: new Date()
       });
     }
+  }
+
+  async updateRepairStatus(id: number, status: string, estimatedCost?: number): Promise<RepairRequest> {
+    const [request] = await db
+      .select()
+      .from(repairRequests)
+      .where(eq(repairRequests.id, id));
+
+    if (!request) {
+      throw new Error("Repair request not found");
+    }
+
+    const [updatedRequest] = await db
+      .update(repairRequests)
+      .set({
+        status,
+        ...(estimatedCost && { estimatedCost: estimatedCost.toString() }),
+      })
+      .where(eq(repairRequests.id, id))
+      .returning();
+
+    return updatedRequest;
+  }
+
+  async confirmRepairEstimate(id: number): Promise<RepairRequest> {
+    const [request] = await db
+      .select()
+      .from(repairRequests)
+      .where(eq(repairRequests.id, id));
+
+    if (!request) {
+      throw new Error("Repair request not found");
+    }
+
+    const [updatedRequest] = await db
+      .update(repairRequests)
+      .set({
+        status: 'ESTIMATE_CONFIRMED'
+      })
+      .where(eq(repairRequests.id, id))
+      .returning();
+
+    // Create notification for technician
+    await this.createNotification({
+      userId: request.technicianId!,
+      title: "Repair Estimate Confirmed",
+      message: `The customer has confirmed the repair estimate for ${request.deviceType}. Please proceed with scheduling pickup.`,
+      type: "REPAIR_CONFIRMED",
+      createdAt: new Date()
+    });
+
+    return updatedRequest;
   }
 }
 

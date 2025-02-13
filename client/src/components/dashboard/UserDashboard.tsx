@@ -104,7 +104,7 @@ export default function UserDashboard() {
         status: "PENDING",
         deviceType: "",
         description: "",
-        userId: user?.id, // Add userId to form defaults
+        userId: user?.id, 
       }
     });
 
@@ -384,15 +384,18 @@ export default function UserDashboard() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Status</TableHead>
                     <TableHead>Device</TableHead>
                     <TableHead>Description</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Estimated Cost</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {repairRequests?.map((request) => (
                     <TableRow key={request.id}>
+                      <TableCell>{request.deviceType}</TableCell>
+                      <TableCell>{request.description}</TableCell>
                       <TableCell>
                         <Badge variant={
                           request.status === "COMPLETED" ? "default" :
@@ -401,12 +404,47 @@ export default function UserDashboard() {
                           {request.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>{request.deviceType}</TableCell>
-                      <TableCell>{request.description}</TableCell>
                       <TableCell>
                         {request.estimatedCost ?
                           `$${parseFloat(request.estimatedCost.toString()).toFixed(2)}` :
                           'Pending'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          {request.estimatedCost && request.status === "IN_PROGRESS" && (
+                            <Button
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  await apiRequest("POST", `/api/repair-requests/${request.id}/confirm`);
+                                  queryClient.invalidateQueries({ queryKey: ["/api/repair-requests/user"] });
+                                  toast({
+                                    title: "Success",
+                                    description: "Repair estimate confirmed. The technician will contact you for pickup.",
+                                  });
+                                } catch (error) {
+                                  toast({
+                                    title: "Error",
+                                    description: "Failed to confirm repair estimate",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                            >
+                              Confirm Estimate
+                            </Button>
+                          )}
+                          {request.status === "ESTIMATE_CONFIRMED" && (
+                            <Badge variant="secondary">
+                              Awaiting Pickup
+                            </Badge>
+                          )}
+                          {request.pickupDate && (
+                            <Badge variant="outline">
+                              Pickup: {new Date(request.pickupDate).toLocaleDateString()}
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

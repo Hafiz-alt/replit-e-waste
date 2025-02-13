@@ -80,6 +80,48 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.patch("/api/repair-requests/:id/status", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { status, estimatedCost } = req.body;
+
+    try {
+      const request = await storage.updateRepairStatus(
+        parseInt(req.params.id),
+        status,
+        estimatedCost
+      );
+
+      // Create notification for cost estimate
+      if (estimatedCost) {
+        await storage.createNotification({
+          userId: request.userId,
+          title: "Repair Cost Estimate",
+          message: `Your repair for ${request.deviceType} has been estimated at $${estimatedCost}. Please review and confirm to proceed with pickup scheduling.`,
+          type: "REPAIR_ESTIMATE",
+          createdAt: new Date()
+        });
+      }
+
+      res.json(request);
+    } catch (error) {
+      console.error("Failed to update repair status:", error);
+      res.status(500).json({ message: "Failed to update repair status" });
+    }
+  });
+
+  // New endpoint for users to confirm repair estimate
+  app.post("/api/repair-requests/:id/confirm", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const request = await storage.confirmRepairEstimate(parseInt(req.params.id));
+      res.json(request);
+    } catch (error) {
+      console.error("Failed to confirm repair estimate:", error);
+      res.status(500).json({ message: "Failed to confirm repair estimate" });
+    }
+  });
+
   // Pickup Request Routes
   app.post("/api/pickup-requests", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
